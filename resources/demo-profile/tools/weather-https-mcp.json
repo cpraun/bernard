@@ -1,0 +1,6 @@
+{
+  "weather-http": {
+    "type": "streamableHttp",
+    "url": "https://getgather-weather.fly.dev/mcp"
+  }
+}

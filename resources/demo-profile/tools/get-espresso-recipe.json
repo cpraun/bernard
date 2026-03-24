@@ -1,0 +1,21 @@
+{
+  "name": "get_espresso_recipe",
+  "description": "Provides brewing parameters based on bean roast level.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "roast_type": {
+        "type": "string",
+        "enum": [
+          "light",
+          "medium",
+          "dark"
+        ],
+        "description": "The darkness of the coffee beans."
+      }
+    },
+    "required": [
+      "roast_type"
+    ]
+  }
+}

@@ -1,0 +1,185 @@
+/*
+ * Copyright 2026 Christoph von Praun
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+:root {
+  --ev-c-white: #ffffff;
+  --ev-c-white-soft: #f4f4f5;
+  --ev-c-white-mute: #ececed;
+
+  --ev-c-black: #0f1117;
+  --ev-c-black-soft: #1a1b23;
+  --ev-c-black-mute: #22232b;
+
+  --ev-c-gray-1: #52525b;
+  --ev-c-gray-2: #3f3f46;
+  --ev-c-gray-3: #27272a;
+
+  --ev-c-text-1: #ededf0;
+  --ev-c-text-2: #b0b0b8;
+  --ev-c-text-3: #8a8a93;
+
+  --ev-button-alt-border: transparent;
+  --ev-button-alt-text: var(--ev-c-text-1);
+  --ev-button-alt-bg: var(--ev-c-gray-3);
+  --ev-button-alt-hover-border: transparent;
+  --ev-button-alt-hover-text: var(--ev-c-text-1);
+  --ev-button-alt-hover-bg: var(--ev-c-gray-2);
+
+  /* Accent */
+  --color-accent: #818cf8;
+  --color-accent-hover: #a5b4fc;
+
+  /* Surfaces */
+  --bg-base: #0f1117;
+  --bg-raised: #1a1b23;
+  --bg-overlay: #22232b;
+  --bg-sidebar: #14151d;
+  --bg-titlebar: #0f1117;
+  --bg-input: #1a1b23;
+  --bg-editor: #0f1117;
+  --bg-splash: #0a0b10;
+
+  /* Borders & dividers */
+  --border-default: #27272a;
+  --border-input: #3f3f46;
+
+  /* Hover/active */
+  --bg-hover: #27272a;
+  --bg-active: #1a1b23;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #3f3f46;
+  --scrollbar-thumb-hover: #52525b;
+
+  /* Code blocks */
+  --code-bg: #1a1b23;
+
+  /* Assistant bubble */
+  --bubble-assistant-bg: #27272a;
+
+  /* Error bubble */
+  --bubble-error-bg: #3b1c1c;
+  --bubble-error-text: #f8a0a0;
+
+  /* Dialog */
+  --dialog-bg: #1a1b23;
+
+  /* Frontmatter */
+  --frontmatter-bg: #14151d;
+  --frontmatter-border: #3f3f46;
+  --frontmatter-text: #a1a1aa;
+
+  /* Misc */
+  --rename-input-bg: #1a1b23;
+  --settings-input-bg: #1a1b23;
+  --drag-highlight-bg: #1e1b4b;
+  --skills-drag-bg: #1e1b3a;
+  --store-list-bg: #14151d;
+
+  /* Overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --settings-shadow: rgba(0, 0, 0, 0.4);
+
+  /* Splash */
+  --splash-title: #e4e4e7;
+  --splash-subtitle: #a1a1aa;
+  --splash-credit: #52525b;
+}
+
+:root {
+  --color-background: var(--bg-base);
+  --color-background-soft: var(--ev-c-black-soft);
+  --color-background-mute: var(--ev-c-black-mute);
+
+  --color-text: var(--ev-c-text-1);
+}
+
+/* ── Light theme overrides ─────────────────────────────────────────────────── */
+
+:root.light-theme {
+  --ev-c-text-1: #111114;
+  --ev-c-text-2: #414149;
+  --ev-c-text-3: #5c5c64;
+
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f46e5;
+
+  --bg-base: #ffffff;
+  --bg-raised: #f4f4f5;
+  --bg-overlay: #ececed;
+  --bg-sidebar: #f4f4f5;
+  --bg-titlebar: #ffffff;
+  --bg-input: #f4f4f5;
+  --bg-editor: #ffffff;
+  --bg-splash: #f4f4f5;
+
+  --border-default: #e4e4e7;
+  --border-input: #d4d4d8;
+
+  --bg-hover: #e4e4e7;
+  --bg-active: #d4d4d8;
+
+  --scrollbar-thumb: #d4d4d8;
+  --scrollbar-thumb-hover: #a1a1aa;
+
+  --code-bg: #f4f4f5;
+
+  --bubble-assistant-bg: #e4e4e7;
+
+  --bubble-error-bg: #fef2f2;
+  --bubble-error-text: #b91c1c;
+
+  --dialog-bg: #f4f4f5;
+
+  --frontmatter-bg: #f4f4f5;
+  --frontmatter-border: #d4d4d8;
+  --frontmatter-text: #71717a;
+
+  --rename-input-bg: #ffffff;
+  --settings-input-bg: #f4f4f5;
+  --drag-highlight-bg: #e0e7ff;
+  --skills-drag-bg: #eef2ff;
+  --store-list-bg: #f4f4f5;
+
+  --overlay-bg: rgba(0, 0, 0, 0.3);
+  --settings-shadow: rgba(0, 0, 0, 0.15);
+
+  --splash-title: #18181b;
+  --splash-subtitle: #52525b;
+  --splash-credit: #a1a1aa;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+
+ul {
+  list-style: none;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--color-text);
+  background: var(--color-background);
+  line-height: 1.6;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

@@ -1,0 +1,23 @@
+{
+  "name": "getWeather",
+  "description": "Get the current weather in a given location",
+  "parameters": {
+    "type": "OBJECT",
+    "properties": {
+      "location": {
+        "type": "STRING",
+        "description": "The city and state, e.g. San Francisco, CA"
+      },
+      "unit": {
+        "type": "STRING",
+        "enum": [
+          "celsius",
+          "fahrenheit"
+        ]
+      }
+    },
+    "required": [
+      "location"
+    ]
+  }
+}

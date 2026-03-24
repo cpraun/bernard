@@ -1,0 +1,6 @@
+{
+"open-meteo": {
+      "command": "npx",
+      "args": ["-y", "open-meteo-mcp-server"]
+    }
+}

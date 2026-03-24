@@ -1,0 +1,14 @@
+node_modules
+dist
+out
+.DS_Store
+.eslintcache
+*.log*
+.env*
+.idea/
+*.tsbuildinfo
+Thumbs.db
+.vscode/
+eng.traineddata
+docs/architecture.svg
+docs/architecture.pptx
