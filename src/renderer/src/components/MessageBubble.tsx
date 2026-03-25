@@ -131,7 +131,7 @@ function MessageBubble({ message, onViewLog, hasLog, activeProjectId }: MessageB
   }
 
   const handlePreviewHtml = (): void => {
-    const title = 'HTML Preview — ' + new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const title = 'HTML Preview — ' + new Date(message.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     const html = fencedMatch ? fencedMatch[1] : message.content
     window.api.previewHtml(html, title)
   }
@@ -245,11 +245,11 @@ function MessageBubble({ message, onViewLog, hasLog, activeProjectId }: MessageB
           ) : (
             <>
               <span className="message-time">
-                {new Date(message.timestamp).toLocaleDateString([], {
+                {new Date(message.timestamp).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric'
                 })}{' '}
-                {new Date(message.timestamp).toLocaleTimeString([], {
+                {new Date(message.timestamp).toLocaleTimeString('en-US', {
                   hour: '2-digit',
                   minute: '2-digit',
                   hour12: true
