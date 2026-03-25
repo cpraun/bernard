@@ -1848,6 +1848,8 @@ body {
   color: #ccc;
   white-space: pre-wrap;
   word-break: break-all;
+  user-select: text;
+  cursor: text;
 }
 
 .light-theme .mcp-log-content {
