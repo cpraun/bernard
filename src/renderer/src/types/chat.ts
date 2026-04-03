@@ -26,6 +26,7 @@ export interface Message {
   promptTokens?: number
   completionTokens?: number
   responseTimeMs?: number
+  reasoning?: string
 }
 
 export interface Conversation {

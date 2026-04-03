@@ -622,6 +622,52 @@ body {
   color: var(--ev-c-text-2);
 }
 
+.message-reasoning {
+  margin-bottom: 8px;
+  border-left: 2px solid var(--ev-c-divider);
+  padding-left: 8px;
+}
+
+.message-reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.6;
+  color: inherit;
+  padding: 0;
+  user-select: none;
+}
+
+.message-reasoning-header:hover {
+  opacity: 0.85;
+}
+
+.message-reasoning-chevron {
+  display: inline-block;
+  font-size: 14px;
+  transition: transform 0.15s;
+}
+
+.message-reasoning-chevron.open {
+  transform: rotate(90deg);
+}
+
+.message-reasoning-body {
+  margin: 6px 0 0;
+  font-size: 12px;
+  opacity: 0.6;
+  color: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  line-height: 1.5;
+  user-select: text;
+}
+
 .message-sources {
   margin-top: 8px;
   display: flex;

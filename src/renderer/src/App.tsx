@@ -841,6 +841,7 @@ function App(): React.JSX.Element {
             id: pendingId,
             role: 'assistant' as const,
             content: response.content,
+            reasoning: response.reasoning,
             timestamp: Date.now(),
             sources: response.sources,
             toolsUsed: response.toolsUsed,
