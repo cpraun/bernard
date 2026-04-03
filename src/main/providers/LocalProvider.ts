@@ -78,11 +78,27 @@ export class LocalProvider implements NAIProvider {
   readonly name = 'OpenAI Local'
   private baseUrl: string
   private model?: string
+  private temperature?: number
+  private topP?: number
+  private maxOutputTokens?: number
+  private reasoningEffort?: 'low' | 'medium' | 'high'
   private queryRAG?: RAGQueryFn
 
-  constructor(baseUrl = 'http://localhost:1234/v1', queryRAG?: RAGQueryFn, model?: string) {
+  constructor(
+    baseUrl = 'http://localhost:1234/v1',
+    queryRAG?: RAGQueryFn,
+    model?: string,
+    temperature?: number,
+    topP?: number,
+    maxOutputTokens?: number,
+    reasoningEffort?: 'low' | 'medium' | 'high'
+  ) {
     this.baseUrl = baseUrl.replace(/\/$/, '')
     this.model = model
+    this.temperature = temperature
+    this.topP = topP
+    this.maxOutputTokens = maxOutputTokens
+    this.reasoningEffort = reasoningEffort
     this.queryRAG = queryRAG
   }
 
@@ -111,14 +127,18 @@ export class LocalProvider implements NAIProvider {
       body: JSON.stringify({
         model: modelId,
         messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
-        max_tokens: 10
+        max_tokens: 100
       }),
       signal: AbortSignal.timeout(30000)
     })
     if (!chatRes.ok) throw new Error(`Model "${modelId}" failed: ${chatRes.status}: ${await chatRes.text()}`)
-    const chatJson = (await chatRes.json()) as { choices?: { message?: { content?: string } }[] }
-    const reply = chatJson.choices?.[0]?.message?.content
-    if (!reply) throw new Error(`Model "${modelId}" returned an empty response.`)
+    const chatJson = (await chatRes.json()) as { choices?: { message?: { content?: string; reasoning_content?: string } }[] }
+    const msg = chatJson.choices?.[0]?.message
+    // Accept either content or reasoning_content (reasoning models such as Gemma 4 return
+    // their output in reasoning_content and leave content as an empty string)
+    if (!msg || (msg.content === undefined && msg.reasoning_content === undefined)) {
+      throw new Error(`Model "${modelId}" returned an empty response.`)
+    }
 
     return { model: modelId, displayName: modelId }
   }
@@ -207,6 +227,10 @@ export class LocalProvider implements NAIProvider {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = { messages: apiMessages }
     if (this.model) body.model = this.model
+    if (this.temperature !== undefined) body.temperature = this.temperature
+    if (this.topP !== undefined) body.top_p = this.topP
+    if (this.maxOutputTokens !== undefined) body.max_tokens = this.maxOutputTokens
+    if (this.reasoningEffort) body.reasoning_effort = this.reasoningEffort
     if (tools) body.tools = tools
 
     logger?.log('API_REQUEST', JSON.stringify(body, null, 2))
@@ -303,6 +327,10 @@ export class LocalProvider implements NAIProvider {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const nextBody: any = { messages: apiMessages }
       if (this.model) nextBody.model = this.model
+      if (this.temperature !== undefined) nextBody.temperature = this.temperature
+      if (this.topP !== undefined) nextBody.top_p = this.topP
+      if (this.maxOutputTokens !== undefined) nextBody.max_tokens = this.maxOutputTokens
+      if (this.reasoningEffort) nextBody.reasoning_effort = this.reasoningEffort
       if (tools) nextBody.tools = tools
 
       logger?.log('API_REQUEST', JSON.stringify(nextBody, null, 2))
@@ -325,8 +353,11 @@ export class LocalProvider implements NAIProvider {
     }
 
     logger?.log('RESPONSE', `${json.usage?.completion_tokens ?? 0} completion tokens`)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reasoning = (choice.message as any).reasoning_content as string | undefined
     return {
       content: choice.message.content ?? '',
+      reasoning: reasoning || undefined,
       model: json.model,
       usage: json.usage
         ? { promptTokens: json.usage.prompt_tokens, completionTokens: json.usage.completion_tokens }

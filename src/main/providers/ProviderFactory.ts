@@ -65,7 +65,15 @@ export function createProvider(providerId: string): NAIProvider {
       )
     }
     case 'openai-local':
-      return new LocalProvider(config?.baseUrl || undefined, queryRAG, config?.model || undefined)
+      return new LocalProvider(
+        config?.baseUrl || undefined,
+        queryRAG,
+        config?.model || undefined,
+        config?.temperature,
+        config?.topP,
+        config?.maxOutputTokens,
+        config?.reasoningEffort
+      )
     case 'vertex': {
       if (!config?.projectId) throw new Error('No GCP Project ID configured for provider: vertex')
       if (!config?.endpointId) throw new Error('No Endpoint ID configured for provider: vertex')

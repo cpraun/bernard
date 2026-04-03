@@ -70,4 +70,5 @@ export interface NAIResponse {
   }
   sources?: { title: string; text?: string }[]
   toolsUsed?: { name: string; args?: Record<string, unknown>; error?: boolean }[]
+  reasoning?: string
 }

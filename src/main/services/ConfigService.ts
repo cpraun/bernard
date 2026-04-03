@@ -27,6 +27,7 @@ export interface ProviderConfig {
   topK?: number
   topP?: number
   maxOutputTokens?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
   stop?: string[]
   projectId?: string
   region?: string
