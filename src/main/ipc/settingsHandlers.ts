@@ -173,21 +173,7 @@ export function registerSettingsHandlers(): void {
       if (id === 'anthropic' || id === 'gemini') {
         results[id] = !!prov?.apiKey
       } else if (id === 'vertex') {
-        if (!(prov?.projectId && prov?.endpointId)) {
-          results[id] = false
-        } else {
-          try {
-            const provider = createProvider(id)
-            if (provider.testConnection) {
-              const info = await provider.testConnection()
-              results[id] = !!info.displayName && !info.displayName.includes('No models deployed')
-            } else {
-              results[id] = true
-            }
-          } catch {
-            results[id] = false
-          }
-        }
+        results[id] = !!(prov?.projectId && prov?.endpointId)
       } else {
         // Local providers: check connectivity with a short timeout
         const rawBaseUrl = (prov?.baseUrl || (id === 'openai-local' ? 'http://localhost:1234/v1' : 'http://localhost:11434')).replace(/\/+$/, '')
