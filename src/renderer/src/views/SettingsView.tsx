@@ -19,11 +19,13 @@ interface ProviderConfig {
   apiKey?: string
   baseUrl?: string
   model?: string
+  embeddingModel?: string
   enabled?: boolean
   temperature?: number
   topK?: number
   topP?: number
   maxOutputTokens?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
   stop?: string[]
   projectId?: string
   region?: string
@@ -452,22 +454,71 @@ function SettingsView({ onSettingsChange }: SettingsViewProps): React.JSX.Elemen
                   )}
 
                   {def.id === 'openai-local' && (
-                    <div className="provider-field">
-                      <label>Model</label>
-                      <select
-                        className="settings-input"
-                        value={providerConfig.model || ''}
-                        onChange={(e) => handleModelChange(def.id, e.target.value)}
-                        onMouseDown={() => fetchOpenaiLocalModels()}
-                      >
-                        {openaiLocalModels.length === 0 && (
-                          <option value="">— Click here to select a model —</option>
-                        )}
-                        {openaiLocalModels.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <>
+                      <div className="provider-field">
+                        <label>Model</label>
+                        <select
+                          className="settings-input"
+                          value={providerConfig.model || ''}
+                          onChange={(e) => handleModelChange(def.id, e.target.value)}
+                          onMouseDown={() => fetchOpenaiLocalModels()}
+                        >
+                          {openaiLocalModels.length === 0 && (
+                            <option value="">— Click here to select a model —</option>
+                          )}
+                          {openaiLocalModels.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="provider-field">
+                        <label>Temperature <span className="param-value">{(providerConfig.temperature ?? 1.0).toFixed(2)}</span></label>
+                        <input
+                          type="range"
+                          min={0} max={2} step={0.01}
+                          value={providerConfig.temperature ?? 1.0}
+                          onChange={(e) => handleGenParamChange(def.id, 'temperature', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div className="provider-field">
+                        <label>Top P <span className="param-value">{(providerConfig.topP ?? 1.0).toFixed(2)}</span></label>
+                        <input
+                          type="range"
+                          min={0} max={1} step={0.01}
+                          value={providerConfig.topP ?? 1.0}
+                          onChange={(e) => handleGenParamChange(def.id, 'topP', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div className="provider-field">
+                        <label>Max Output Tokens <span className="param-value">{providerConfig.maxOutputTokens ?? 8192}</span></label>
+                        <input
+                          type="range"
+                          min={256} max={32768} step={256}
+                          value={providerConfig.maxOutputTokens ?? 8192}
+                          onChange={(e) => handleGenParamChange(def.id, 'maxOutputTokens', parseInt(e.target.value))}
+                        />
+                      </div>
+                      <div className="provider-field">
+                        <label>Reasoning Effort</label>
+                        <select
+                          className="settings-input"
+                          value={providerConfig.reasoningEffort ?? ''}
+                          onChange={(e) => {
+                            if (!config) return
+                            const val = e.target.value as 'low' | 'medium' | 'high' | ''
+                            const updated = { ...providerConfig }
+                            if (val) updated.reasoningEffort = val
+                            else delete updated.reasoningEffort
+                            updateConfig({ ...config, providers: { ...config.providers, [def.id]: updated } })
+                          }}
+                        >
+                          <option value="">— Not specified —</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+                    </>
                   )}
 
                   {def.id !== 'openai-local' && def.id !== 'vertex' && <div className="provider-field">
