@@ -23,15 +23,16 @@ import { getProviderConfig, loadConfig } from '../services/ConfigService'
 import * as GeminiFileSearch from '../services/GeminiFileSearchService'
 import * as LocalFileSearch from '../services/LocalFileSearchService'
 
-export function createProvider(providerId: string): NAIProvider {
-  const config = getProviderConfig(providerId)
+export function createProvider(providerId: string, overrides?: { temperature?: number; ragDisabled?: boolean }): NAIProvider {
+  const baseConfig = getProviderConfig(providerId)
+  const config = overrides ? { ...baseConfig, ...overrides } : baseConfig
 
   const appConfig = loadConfig()
   const vectorBackend = appConfig.vectorDb?.backend ?? (appConfig.vectorDb?.enabled !== false ? 'lancedb' : 'none')
   const lanceDbActive = vectorBackend === 'lancedb'
   const geminiFileSearchActive = vectorBackend === 'gemini'
 
-  const queryRAG = lanceDbActive
+  const queryRAG = lanceDbActive && !overrides?.ragDisabled
     ? async (text: string): Promise<{ title: string; text: string }[]> => LocalFileSearch.query(text)
     : undefined
 
@@ -46,7 +47,7 @@ export function createProvider(providerId: string): NAIProvider {
         config.temperature,
         config.topK,
         config.maxOutputTokens,
-        geminiFileSearchActive ? GeminiFileSearch.getStoreName() ?? undefined : undefined,
+        geminiFileSearchActive && !overrides?.ragDisabled ? GeminiFileSearch.getStoreName() ?? undefined : undefined,
         queryRAG
       )
     }

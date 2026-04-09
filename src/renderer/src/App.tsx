@@ -79,6 +79,7 @@ function App(): React.JSX.Element {
   const [totalCompletionTokens, setTotalCompletionTokens] = useState(0)
   const convTokenData = useRef<Map<string, { lastUsage: { promptTokens: number; completionTokens: number } | null; totalCompletionTokens: number }>>(new Map())
   const [syncStatus, setSyncStatus] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [showSplash, setShowSplash] = useState(true)
   const [splashFading, setSplashFading] = useState(false)
   const [splashStatus, setSplashStatus] = useState('Starting...')
@@ -1105,10 +1106,10 @@ function App(): React.JSX.Element {
           </>
         )}
         {activeTab === 'personas' && (
-          <PersonasTabView activeFilename={activePersonaFilename} onSelect={handlePersonaSelect} initialSidebarWidth={uiPanelSizes.current.personasSidebar} onSidebarResize={(w) => { uiPanelSizes.current.personasSidebar = w }} />
+          <PersonasTabView activeFilename={activePersonaFilename} onSelect={handlePersonaSelect} initialSidebarWidth={uiPanelSizes.current.personasSidebar} onSidebarResize={(w) => { uiPanelSizes.current.personasSidebar = w }} onStatusMessage={setStatusMessage} />
         )}
-        {activeTab === 'commands' && <CommandsTabView initialSidebarWidth={uiPanelSizes.current.commandsSidebar} onSidebarResize={(w) => { uiPanelSizes.current.commandsSidebar = w }} />}
-        {activeTab === 'skills' && <SkillsTabView initialSidebarWidth={uiPanelSizes.current.skillsSidebar} initialCollapsedSkillDirs={uiCollapsedSkillDirs.current} onSidebarResize={(w) => { uiPanelSizes.current.skillsSidebar = w }} />}
+        {activeTab === 'commands' && <CommandsTabView initialSidebarWidth={uiPanelSizes.current.commandsSidebar} onSidebarResize={(w) => { uiPanelSizes.current.commandsSidebar = w }} onStatusMessage={setStatusMessage} />}
+        {activeTab === 'skills' && <SkillsTabView initialSidebarWidth={uiPanelSizes.current.skillsSidebar} initialCollapsedSkillDirs={uiCollapsedSkillDirs.current} onSidebarResize={(w) => { uiPanelSizes.current.skillsSidebar = w }} onStatusMessage={setStatusMessage} />}
         {activeTab === 'tools' && <ToolsTabView selectedFilenames={selectedToolFilenames} conditionalFilenames={conditionalToolFilenames} onSelectionChange={setSelectedToolFilenames} onConditionalChange={setConditionalToolFilenames} initialSidebarWidth={uiPanelSizes.current.toolsSidebar} initialCollapsedMCPServers={uiCollapsedMCPServers.current} onSidebarResize={(w) => { uiPanelSizes.current.toolsSidebar = w }} />}
         {activeTab === 'settings' && <SettingsView onSettingsChange={(s) => {
           const pid = s.defaultProvider
@@ -1143,6 +1144,11 @@ function App(): React.JSX.Element {
             <>
               <span className="status-spinner" />
               <span className="status-label">Sending message…</span>
+            </>
+          ) : statusMessage ? (
+            <>
+              <span className="status-spinner" />
+              <span className="status-label">{statusMessage}</span>
             </>
           ) : lastUsage ? (
             <span className="status-label">

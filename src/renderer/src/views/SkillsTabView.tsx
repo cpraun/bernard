@@ -126,7 +126,7 @@ function TreeItem({ node, depth, selectedPath, onSelect, onDragStart, onDragEnd,
   )
 }
 
-function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSidebarResize }: { initialSidebarWidth?: number; initialCollapsedSkillDirs?: string[]; onSidebarResize?: (width: number) => void }): React.JSX.Element {
+function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSidebarResize, onStatusMessage }: { initialSidebarWidth?: number; initialCollapsedSkillDirs?: string[]; onSidebarResize?: (width: number) => void; onStatusMessage?: (msg: string | null) => void }): React.JSX.Element {
   const [tree, setTree] = useState<SkillTreeNode[]>([])
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
@@ -148,6 +148,8 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [improving, setImproving] = useState(false)
 
   const handleResizeStart = useCallback((e: React.MouseEvent): void => {
     const startX = e.clientX
@@ -252,6 +254,43 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
     }
   }
 
+
+  const handleImprove = async (): Promise<void> => {
+    const ta = textareaRef.current
+    const selectedText = ta && ta.selectionStart !== ta.selectionEnd
+      ? ta.value.substring(ta.selectionStart, ta.selectionEnd)
+      : null
+    const input = selectedText ?? editorContent
+    if (!input.trim()) return
+    setImproving(true)
+    onStatusMessage?.('Improving text with AI… (ESC to cancel)')
+    try {
+      const improved = await window.api.improveText(input, 'improve-skill.md')
+      if (selectedText && ta) {
+        const before = editorContent.substring(0, ta.selectionStart)
+        const after = editorContent.substring(ta.selectionEnd)
+        setEditorContent(before + improved + after)
+      } else {
+        setEditorContent(improved)
+      }
+      setIsDirty(true)
+      onStatusMessage?.(null)
+    } catch {
+      onStatusMessage?.('Improvement cancelled')
+      setTimeout(() => onStatusMessage?.(null), 2000)
+    } finally {
+      setImproving(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!improving) return
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') window.api.abortImprove()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [improving])
 
   const handleEdit = (): void => {
     if (!selectedFile) return
@@ -496,6 +535,14 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
                 <button className="skills-tab-save-button" onClick={handleStartRename}>
                   Rename
                 </button>
+                <button
+                  className="skills-tab-save-button"
+                  onClick={handleImprove}
+                  disabled={improving || viewMode !== 'edit'}
+                  title="Improve text with AI"
+                >
+                  {improving ? 'Improving…' : 'Improve'}
+                </button>
                 <button className="skills-tab-save-button" onClick={viewMode === 'edit' ? () => setViewMode('preview') : handleEdit}>
                   {viewMode === 'edit' ? 'Close' : 'Edit'}
                 </button>
@@ -533,6 +580,7 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
             )}
             {viewMode === 'edit' && (
               <textarea
+                ref={textareaRef}
                 className="skills-tab-textarea"
                 value={editorContent}
                 onChange={(e) => { setEditorContent(e.target.value); setIsDirty(true) }}

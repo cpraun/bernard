@@ -74,13 +74,12 @@ export function getConfigDir(): string {
   const dir = join(app.getPath('home'), '.bernard')
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
-    // Copy demo profile from app resources on first startup
-    const demoSrc = app.isPackaged
-      ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'demo-profile')
-      : join(app.getAppPath(), 'resources', 'demo-profile')
-    const demoDest = join(dir, 'demo-profile')
-    if (existsSync(demoSrc)) {
-      cpSync(demoSrc, demoDest, { recursive: true })
+    // Copy base-directory contents into ~/.bernard/ on first startup
+    const baseSrc = app.isPackaged
+      ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'base-directory')
+      : join(app.getAppPath(), 'resources', 'base-directory')
+    if (existsSync(baseSrc)) {
+      cpSync(baseSrc, dir, { recursive: true })
     }
   }
   return dir

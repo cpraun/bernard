@@ -17,12 +17,13 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import { createProvider } from '../providers/ProviderFactory'
-import { loadConfig, getToolsDir } from '../services/ConfigService'
+import { loadConfig, getToolsDir, getConfigDir } from '../services/ConfigService'
 import { getProjectDir } from '../services/ProjectService'
 import { InteractionLogger } from '../services/InteractionLogger'
 import type { NAIRequest, NAIResponse, ToolDefinition } from '../../shared/types'
 
 let currentAbortController: AbortController | null = null
+let currentImproveAbortController: AbortController | null = null
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -204,6 +205,36 @@ export function registerProviderHandlers(): void {
 
   ipcMain.on('nai:abort', () => {
     currentAbortController?.abort()
+  })
+
+  ipcMain.handle('nai:improveText', async (_event, text: string, promptFile: string): Promise<string> => {
+    const cfg = loadConfig()
+    // Create provider with temperature=0 and RAG/Gemini file search disabled.
+    // No tools, no persona, no commands — only the system prompt file and the user text.
+    const provider = createProvider(cfg.defaultProvider, { temperature: 0, ragDisabled: true })
+    const promptPath = join(getConfigDir(), promptFile)
+    let systemPrompt: string
+    if (existsSync(promptPath)) {
+      systemPrompt = readFileSync(promptPath, 'utf-8')
+    } else {
+      systemPrompt = 'You are a writing assistant. Improve the following text for clarity, conciseness, and correctness. Return only the improved text, with no explanation or preamble.'
+    }
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: text }
+    ]
+    currentImproveAbortController = new AbortController()
+    try {
+      // Pass no tools, no context files, no logger — clean isolated call
+      const response = await provider.sendMessage(messages, undefined, undefined, currentImproveAbortController.signal)
+      return response.content
+    } finally {
+      currentImproveAbortController = null
+    }
+  })
+
+  ipcMain.on('nai:abortImprove', () => {
+    currentImproveAbortController?.abort()
   })
 
   ipcMain.handle('nai:getDefaultProvider', async (): Promise<string> => {

@@ -35,7 +35,7 @@ function createTrashDragImage(): HTMLElement {
   return el
 }
 
-function CommandsTabView({ initialSidebarWidth, onSidebarResize }: { initialSidebarWidth?: number; onSidebarResize?: (width: number) => void }): React.JSX.Element {
+function CommandsTabView({ initialSidebarWidth, onSidebarResize, onStatusMessage }: { initialSidebarWidth?: number; onSidebarResize?: (width: number) => void; onStatusMessage?: (msg: string | null) => void }): React.JSX.Element {
   const [commands, setCommands] = useState<Command[]>([])
   const [selectedCommand, setSelectedCommand] = useState<Command | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
@@ -49,6 +49,8 @@ function CommandsTabView({ initialSidebarWidth, onSidebarResize }: { initialSide
   const [renamingFilename, setRenamingFilename] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [improving, setImproving] = useState(false)
 
   const handleResizeStart = useCallback((e: React.MouseEvent): void => {
     const startX = e.clientX
@@ -139,6 +141,43 @@ function CommandsTabView({ initialSidebarWidth, onSidebarResize }: { initialSide
   }
 
 
+
+  const handleImprove = async (): Promise<void> => {
+    const ta = textareaRef.current
+    const selectedText = ta && ta.selectionStart !== ta.selectionEnd
+      ? ta.value.substring(ta.selectionStart, ta.selectionEnd)
+      : null
+    const input = selectedText ?? editorContent
+    if (!input.trim()) return
+    setImproving(true)
+    onStatusMessage?.('Improving text with AI… (ESC to cancel)')
+    try {
+      const improved = await window.api.improveText(input, 'improve-command.md')
+      if (selectedText && ta) {
+        const before = editorContent.substring(0, ta.selectionStart)
+        const after = editorContent.substring(ta.selectionEnd)
+        setEditorContent(before + improved + after)
+      } else {
+        setEditorContent(improved)
+      }
+      setIsDirty(true)
+      onStatusMessage?.(null)
+    } catch {
+      onStatusMessage?.('Improvement cancelled')
+      setTimeout(() => onStatusMessage?.(null), 2000)
+    } finally {
+      setImproving(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!improving) return
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') window.api.abortImprove()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [improving])
 
   const handleEdit = (): void => {
     if (!selectedCommand) return
@@ -340,6 +379,14 @@ function CommandsTabView({ initialSidebarWidth, onSidebarResize }: { initialSide
               <button className="skills-tab-save-button" onClick={handleStartRename}>
                 Rename
               </button>
+              <button
+                className="skills-tab-save-button"
+                onClick={handleImprove}
+                disabled={improving || viewMode !== 'edit'}
+                title="Improve text with AI"
+              >
+                {improving ? 'Improving…' : 'Improve'}
+              </button>
               <button className="skills-tab-save-button" onClick={viewMode === 'edit' ? () => setViewMode('preview') : handleEdit}>
                 {viewMode === 'edit' ? 'Close' : 'Edit'}
               </button>
@@ -361,6 +408,7 @@ function CommandsTabView({ initialSidebarWidth, onSidebarResize }: { initialSide
             )}
             {viewMode === 'edit' && (
               <textarea
+                ref={textareaRef}
                 className="skills-tab-textarea"
                 value={editorContent}
                 onChange={(e) => { setEditorContent(e.target.value); setIsDirty(true) }}

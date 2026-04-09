@@ -28,6 +28,7 @@ const api = {
   }) => ipcRenderer.invoke('nai:sendMessage', request),
 
   abortMessage: () => ipcRenderer.send('nai:abort'),
+  abortImprove: () => ipcRenderer.send('nai:abortImprove'),
   abortInit: () => ipcRenderer.send('app:abortInit'),
 
   getDefaultProvider: () => ipcRenderer.invoke('nai:getDefaultProvider'),
@@ -220,6 +221,7 @@ const api = {
   refreshAllMCP: () => ipcRenderer.invoke('mcp:refreshAll'),
   readMCPLog: (name: string) => ipcRenderer.invoke('mcp:readLog', name),
   clearMCPLog: (name: string) => ipcRenderer.invoke('mcp:clearLog', name),
+  improveText: (text: string, promptFile: string) => ipcRenderer.invoke('nai:improveText', text, promptFile),
   onMCPChanged: (callback: () => void): (() => void) => {
     const handler = (): void => callback()
     ipcRenderer.on('mcp:changed', handler)

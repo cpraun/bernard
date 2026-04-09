@@ -17,7 +17,7 @@ import { existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync, renam
 import { join, extname, basename, resolve, sep } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import chokidar, { type FSWatcher } from 'chokidar'
-import { getPersonasDir } from '../services/ConfigService'
+import { getPersonasDir, getConfigDir } from '../services/ConfigService'
 
 // ── Watcher ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,10 @@ export function registerPersonasHandlers(): void {
     while (existsSync(join(personasDir, filename))) {
       filename = `new-persona-${counter++}.md`
     }
-    const template = `---\ndescription: \n---\n\nYou are a helpful assistant.\n`
+    const templatePath = join(getConfigDir(), 'new-persona.md')
+    const template = existsSync(templatePath)
+      ? readFileSync(templatePath, 'utf-8')
+      : `---\ndescription: \n---\n\nYou are a helpful assistant.\n`
     writeFileSync(join(personasDir, filename), template, 'utf-8')
     return filename
   })

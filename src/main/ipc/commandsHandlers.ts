@@ -17,7 +17,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, unlinkSync, renam
 import { join, extname, basename, resolve, sep } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import chokidar, { type FSWatcher } from 'chokidar'
-import { getCommandsDir } from '../services/ConfigService'
+import { getCommandsDir, getConfigDir } from '../services/ConfigService'
 
 function parseFrontmatter(content: string): { description: string; personas: string[] } {
   const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
@@ -118,7 +118,10 @@ export function registerCommandsHandlers(): void {
     while (existsSync(join(commandsDir, filename))) {
       filename = `new-command-${counter++}.md`
     }
-    const template = `---\ndescription: \n---\n\nType your command template here.\n`
+    const templatePath = join(getConfigDir(), 'new-command.md')
+    const template = existsSync(templatePath)
+      ? readFileSync(templatePath, 'utf-8')
+      : `---\ndescription: \n---\n\nType your command template here.\n`
     writeFileSync(join(commandsDir, filename), template, 'utf-8')
     return filename
   })

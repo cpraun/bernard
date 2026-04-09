@@ -76,6 +76,7 @@ interface NaiChatAPI {
   sendMessage: (request: NAIRequest) => Promise<NAIResponse>
   abortMessage: () => void
   abortInit: () => void
+  abortImprove: () => void
   getDefaultProvider: () => Promise<string>
 
   // Project APIs
@@ -224,6 +225,7 @@ interface NaiChatAPI {
   refreshAllMCP: () => Promise<void>
   readMCPLog: (name: string) => Promise<string>
   clearMCPLog: (name: string) => Promise<void>
+  improveText: (text: string, promptFile: string) => Promise<string>
   onMCPChanged: (callback: () => void) => () => void
 
   // Export APIs
