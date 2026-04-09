@@ -1,8 +1,8 @@
 ---
 command: /who-are-you
-description: Returns the persona that was pre-loaded in this chat. If no persona is preloaded, the the AI shouls simply state the model or its provider.
+description: Returns the agent that was pre-loaded in this chat. If no agent is preloaded, the AI should simply state the model or its provider.
 argument-hint: none
 context-hint: none
-persona:
+agent:
 ---
 Who are you?

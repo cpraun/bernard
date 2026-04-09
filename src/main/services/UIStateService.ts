@@ -19,7 +19,7 @@ import { getConfigDir } from './ConfigService'
 
 export interface PanelSizes {
   chatSidebar?: number
-  personasSidebar?: number
+  agentsSidebar?: number
   commandsSidebar?: number
   skillsSidebar?: number
   toolsSidebar?: number

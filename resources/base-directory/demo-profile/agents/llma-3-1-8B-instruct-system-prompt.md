@@ -1,5 +1,5 @@
 ---
-persona: llma-3-1-8B-instruct-system-prompt
+agent: llma-3-1-8B-instruct-system-prompt
 This specific system prompt instructs the small llma model to handle function calls with higher precision.
 ---
 

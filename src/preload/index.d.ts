@@ -51,7 +51,7 @@ interface StoredConversation {
   title: string
   messages: StoredMessage[]
   selectedContextFiles?: string[]
-  personaFilename?: string
+  agentFilename?: string
   providerId?: string
   vectorDbBackend?: string
   createdAt: number
@@ -148,7 +148,7 @@ interface NaiChatAPI {
       name: string
       content: string
       description: string
-      personas: string[]
+      agents: string[]
       size: number
     }[]
   >
@@ -202,12 +202,12 @@ interface NaiChatAPI {
   signalRendererReady: () => void
   readAppLog: () => Promise<string>
   clearAppLog: () => Promise<boolean>
-  listPersonas: () => Promise<{ filename: string; name: string; content: string; size: number }[]>
-  createPersona: () => Promise<string>
-  savePersona: (filename: string, content: string) => Promise<void>
-  deletePersona: (filename: string) => Promise<void>
-  renamePersona: (oldFilename: string, newFilename: string) => Promise<void>
-  onPersonasChanged: (callback: () => void) => () => void
+  listAgents: () => Promise<{ filename: string; name: string; content: string; size: number }[]>
+  createAgent: () => Promise<string>
+  saveAgent: (filename: string, content: string) => Promise<void>
+  deleteAgent: (filename: string) => Promise<void>
+  renameAgent: (oldFilename: string, newFilename: string) => Promise<void>
+  onAgentsChanged: (callback: () => void) => () => void
 
   listTools: () => Promise<{ filename: string; name: string; content: string; size: number; serverName?: string; readOnly?: boolean; isMCPConfig?: boolean }[]>
   saveTool: (filename: string, content: string) => Promise<void>
@@ -280,7 +280,7 @@ interface VectorDbConfig {
 
 interface PanelSizes {
   chatSidebar?: number
-  personasSidebar?: number
+  agentsSidebar?: number
   commandsSidebar?: number
   skillsSidebar?: number
   toolsSidebar?: number

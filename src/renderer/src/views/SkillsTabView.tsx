@@ -470,7 +470,7 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className="personas-sidebar-header">
+        <div className="agents-sidebar-header">
           <span>Skills</span>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="project-add-button" onClick={handleCreateSkill} title="New skill">+</button>
@@ -562,7 +562,7 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
               </div>
             )}
             {viewMode === 'preview' && (
-              <div className="personas-markdown">
+              <div className="agents-markdown">
                 {selectedFile.name.toLowerCase().endsWith('.msg') && (editorContent || selectedFile.content).trimStart().startsWith('<!DOCTYPE') ? (
                   <iframe
                     srcDoc={editorContent || selectedFile.content}
@@ -576,7 +576,7 @@ function SkillsTabView({ initialSidebarWidth, initialCollapsedSkillDirs, onSideb
               </div>
             )}
             {viewMode === 'source' && (
-              <pre className="personas-source">{editorContent || selectedFile.content}</pre>
+              <pre className="agents-source">{editorContent || selectedFile.content}</pre>
             )}
             {viewMode === 'edit' && (
               <textarea

@@ -3,7 +3,7 @@ command: /weather-forecast
 description: Returns information about the current weather in Munich, Germany.
 argument-hint: none
 context-hint: none
-persona:
+agent:
 ---
 Use the Open-Meteo weather forecast tool and provide the output in your own words with a humourous take.
 

@@ -21,7 +21,7 @@ interface Command {
   name: string
   content: string
   description: string
-  personas: string[]
+  agents: string[]
   size: number
 }
 
@@ -296,7 +296,7 @@ function CommandsTabView({ initialSidebarWidth, onSidebarResize, onStatusMessage
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className="personas-sidebar-header">
+        <div className="agents-sidebar-header">
           <span>Commands</span>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="project-add-button" onClick={handleCreateCommand} title="New command">+</button>
@@ -399,12 +399,12 @@ function CommandsTabView({ initialSidebarWidth, onSidebarResize, onStatusMessage
               </button>
             </div>
             {viewMode === 'preview' && (
-              <div className="personas-markdown">
+              <div className="agents-markdown">
                 <MarkdownPreview content={editorContent || selectedCommand.content} />
               </div>
             )}
             {viewMode === 'source' && (
-              <pre className="personas-source">{editorContent || selectedCommand.content}</pre>
+              <pre className="agents-source">{editorContent || selectedCommand.content}</pre>
             )}
             {viewMode === 'edit' && (
               <textarea

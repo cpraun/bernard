@@ -210,7 +210,7 @@ export function registerProviderHandlers(): void {
   ipcMain.handle('nai:improveText', async (_event, text: string, promptFile: string): Promise<string> => {
     const cfg = loadConfig()
     // Create provider with temperature=0 and RAG/Gemini file search disabled.
-    // No tools, no persona, no commands — only the system prompt file and the user text.
+    // No tools, no agent, no commands — only the system prompt file and the user text.
     const provider = createProvider(cfg.defaultProvider, { temperature: 0, ragDisabled: true })
     const promptPath = join(getConfigDir(), promptFile)
     let systemPrompt: string

@@ -32,7 +32,7 @@ function WelcomePopup({ onClose }: WelcomePopupProps): React.JSX.Element {
         <div className="welcome-body">
           <p>
             Welcome! To help you get started, the current profile is set to a{' '}
-            <strong>demo profile</strong>, which includes examples of commands, personas,
+            <strong>demo profile</strong>, which includes examples of commands, agents,
             skills, and tools that you may use as templates for your own.
           </p>
           <p>

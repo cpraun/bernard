@@ -154,8 +154,8 @@ export function getCommandsDir(): string {
   return dir
 }
 
-export function getPersonasDir(): string {
-  const dir = join(getProfileDir(), 'personas')
+export function getAgentsDir(): string {
+  const dir = join(getProfileDir(), 'agents')
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }

@@ -3,7 +3,7 @@ command: /patent-text-coloring
 description: Converts a patent application or invention disclosure provided in context into a colour-coded HTML document. Highlights sentences according to three categories — conventional technology / state of the art (yellow), disadvantages or problems of the state of the art (red), and advantages of the disclosed technology (green). This command implements the ideas of IPGOGGLES (see https://ipgoggles.com)
 argument-hint: none
 context-hint: patent document in TXT format
-persona:
+agent:
 ---
 
 # Input Validation

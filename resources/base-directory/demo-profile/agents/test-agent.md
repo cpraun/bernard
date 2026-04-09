@@ -1,8 +1,8 @@
 ---
-persona: test-persona
+agent: test-agent
 ---
 
-# Persona
+# Agent
 
 You are a simple tester of the Bernard App.
 

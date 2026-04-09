@@ -803,9 +803,9 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
             </div>
 
             {viewMode === 'preview' && (
-              <div className="personas-markdown">
+              <div className="agents-markdown">
                 <pre
-                  className="personas-source"
+                  className="agents-source"
                   dangerouslySetInnerHTML={{ __html: highlightCode(editorContent || viewingTool.content, viewingTool.filename) }}
                 />
               </div>

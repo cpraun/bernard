@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MarkdownPreview from '../components/MarkdownPreview'
 
-interface Persona {
+interface Agent {
   filename: string
   name: string
   content: string
@@ -41,8 +41,8 @@ interface Props {
   onStatusMessage?: (msg: string | null) => void
 }
 
-function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSidebarResize, onStatusMessage }: Props): React.JSX.Element {
-  const [personas, setPersonas] = useState<Persona[]>([])
+function AgentsTabView({ activeFilename, onSelect, initialSidebarWidth, onSidebarResize, onStatusMessage }: Props): React.JSX.Element {
+  const [agents, setAgents] = useState<Agent[]>([])
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
   const [editorContent, setEditorContent] = useState('')
   const [isDirty, setIsDirty] = useState(false)
@@ -73,45 +73,45 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
       document.body.style.cursor = ''
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
-      window.api.patchUIState({ panelSizes: { personasSidebar: lastWidth } })
+      window.api.patchUIState({ panelSizes: { agentsSidebar: lastWidth } })
       onSidebarResize?.(lastWidth)
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }, [sidebarWidth, onSidebarResize])
 
-  const loadPersonas = useCallback(async (): Promise<void> => {
-    const list = await window.api.listPersonas()
-    setPersonas(list as Persona[])
+  const loadAgents = useCallback(async (): Promise<void> => {
+    const list = await window.api.listAgents()
+    setAgents(list as Agent[])
   }, [])
 
   useEffect(() => {
-    loadPersonas()
-  }, [loadPersonas])
+    loadAgents()
+  }, [loadAgents])
 
   useEffect(() => {
-    return window.api.onPersonasChanged(() => {
-      loadPersonas()
+    return window.api.onAgentsChanged(() => {
+      loadAgents()
     })
-  }, [loadPersonas])
+  }, [loadAgents])
 
-  const selectedPersona = personas.find((p) => p.filename === activeFilename) ?? null
+  const selectedAgent = agents.find((a) => a.filename === activeFilename) ?? null
 
   // When the selected file changes externally (e.g. disk reload), sync editor content
   useEffect(() => {
-    if (selectedPersona && !isDirty) {
-      setEditorContent(selectedPersona.content)
+    if (selectedAgent && !isDirty) {
+      setEditorContent(selectedAgent.content)
     }
-  }, [selectedPersona?.content]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedAgent?.content]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const saveCurrentPersona = useCallback(
+  const saveCurrentAgent = useCallback(
     async (filename: string, content: string): Promise<void> => {
-      await window.api.savePersona(filename, content)
-      onSelect(filename, content) // update active persona content in App.tsx
+      await window.api.saveAgent(filename, content)
+      onSelect(filename, content) // update active agent content in App.tsx
       setIsDirty(false)
-      await loadPersonas()
+      await loadAgents()
     },
-    [loadPersonas, onSelect]
+    [loadAgents, onSelect]
   )
 
   const guardDirty = (action: () => void): void => {
@@ -123,8 +123,8 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
     }
   }
 
-  const handleSelectPersona = (persona: Persona): void => {
-    if (activeFilename === persona.filename) {
+  const handleSelectAgent = (agent: Agent): void => {
+    if (activeFilename === agent.filename) {
       guardDirty(() => {
         onSelect(null, null)
         setEditorContent('')
@@ -134,23 +134,22 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
       return
     }
     guardDirty(() => {
-      onSelect(persona.filename, persona.content)
-      setEditorContent(persona.content)
+      onSelect(agent.filename, agent.content)
+      setEditorContent(agent.content)
       setIsDirty(false)
     })
   }
 
-
   const handleEdit = (): void => {
-    if (!selectedPersona) return
-    setEditorContent(editorContent || selectedPersona.content)
+    if (!selectedAgent) return
+    setEditorContent(editorContent || selectedAgent.content)
     setViewMode('edit')
   }
 
   const handleStartRename = (): void => {
-    if (!selectedPersona) return
-    setRenamingFilename(selectedPersona.filename)
-    setRenameValue(selectedPersona.name)
+    if (!selectedAgent) return
+    setRenamingFilename(selectedAgent.filename)
+    setRenameValue(selectedAgent.name)
     setTimeout(() => renameInputRef.current?.focus(), 0)
   }
 
@@ -165,13 +164,13 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
       setRenamingFilename(null)
       return
     }
-    await window.api.renamePersona(renamingFilename, newFilename)
+    await window.api.renameAgent(renamingFilename, newFilename)
     if (activeFilename === renamingFilename) {
-      const content = selectedPersona?.content ?? ''
+      const content = selectedAgent?.content ?? ''
       onSelect(newFilename, content)
     }
     setRenamingFilename(null)
-    await loadPersonas()
+    await loadAgents()
   }
 
   const handleCancelRename = (): void => {
@@ -189,10 +188,10 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
   }
 
   const handleSave = async (): Promise<void> => {
-    if (!selectedPersona || !isDirty) return
+    if (!selectedAgent || !isDirty) return
     setSaving(true)
     try {
-      await saveCurrentPersona(selectedPersona.filename, editorContent)
+      await saveCurrentAgent(selectedAgent.filename, editorContent)
     } finally {
       setSaving(false)
     }
@@ -208,7 +207,7 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
     setImproving(true)
     onStatusMessage?.('Improving text with AI… (ESC to cancel)')
     try {
-      const improved = await window.api.improveText(input, 'improve-persona.md')
+      const improved = await window.api.improveText(input, 'improve-agent.md')
       if (selectedText && ta) {
         const before = editorContent.substring(0, ta.selectionStart)
         const after = editorContent.substring(ta.selectionEnd)
@@ -243,7 +242,7 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
   }
 
   const handleDialogSave = async (): Promise<void> => {
-    if (selectedPersona) await saveCurrentPersona(selectedPersona.filename, editorContent)
+    if (selectedAgent) await saveCurrentAgent(selectedAgent.filename, editorContent)
     setShowUnsavedDialog(false)
     pendingAction?.()
     setPendingAction(null)
@@ -256,15 +255,15 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
     setPendingAction(null)
   }
 
-  const handleDelete = async (persona: Persona): Promise<void> => {
-    await window.api.deletePersona(persona.filename)
-    if (activeFilename === persona.filename) {
+  const handleDelete = async (agent: Agent): Promise<void> => {
+    await window.api.deleteAgent(agent.filename)
+    if (activeFilename === agent.filename) {
       onSelect(null, null)
       setEditorContent('')
       setIsDirty(false)
       setViewMode('preview')
     }
-    await loadPersonas()
+    await loadAgents()
   }
 
   const isKebabMd = (name: string): boolean =>
@@ -272,7 +271,7 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
 
   const handleDragOver = (e: React.DragEvent<HTMLElement>): void => {
     e.preventDefault()
-    if (!e.dataTransfer.types.includes('x-nai-persona')) setIsDragOver(true)
+    if (!e.dataTransfer.types.includes('x-nai-agent')) setIsDragOver(true)
   }
 
   const handleDragLeave = (): void => {
@@ -282,23 +281,23 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
   const handleDrop = async (e: React.DragEvent<HTMLElement>): Promise<void> => {
     e.preventDefault()
     setIsDragOver(false)
-    if (e.dataTransfer.types.includes('x-nai-persona')) {
+    if (e.dataTransfer.types.includes('x-nai-agent')) {
       dragDropHandled.current = true
       return
     }
     const valid = Array.from(e.dataTransfer.files).filter((f) => isKebabMd(f.name))
     for (const file of valid) {
       const content = await file.text()
-      await window.api.savePersona(file.name, content)
+      await window.api.saveAgent(file.name, content)
     }
-    if (valid.length > 0) await loadPersonas()
+    if (valid.length > 0) await loadAgents()
   }
 
-  const handleCreatePersona = async (): Promise<void> => {
-    const filename = await window.api.createPersona()
-    await loadPersonas()
-    const list = await window.api.listPersonas() as Persona[]
-    const created = list.find((p) => p.filename === filename)
+  const handleCreateAgent = async (): Promise<void> => {
+    const filename = await window.api.createAgent()
+    await loadAgents()
+    const list = await window.api.listAgents() as Agent[]
+    const created = list.find((a) => a.filename === filename)
     if (created) {
       onSelect(created.filename, created.content)
       setEditorContent(created.content)
@@ -310,8 +309,6 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
     }
   }
 
-
-
   return (
     <div className="skills-tab">
       <aside
@@ -321,38 +318,38 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className="personas-sidebar-header">
-          <span>Personas</span>
+        <div className="agents-sidebar-header">
+          <span>Agents</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button className="project-add-button" onClick={handleCreatePersona} title="New persona">+</button>
-            <button className="project-add-button" onClick={() => { if (selectedPersona) handleDelete(selectedPersona) }} disabled={!selectedPersona} title="Delete persona">&minus;</button>
+            <button className="project-add-button" onClick={handleCreateAgent} title="New agent">+</button>
+            <button className="project-add-button" onClick={() => { if (selectedAgent) handleDelete(selectedAgent) }} disabled={!selectedAgent} title="Delete agent">&minus;</button>
           </div>
         </div>
-        {personas.length === 0 ? (
-          <div className="skills-tab-empty">Drop a file of type <span className="context-file-icon file-type-md">MD</span> here to add a persona.</div>
+        {agents.length === 0 ? (
+          <div className="skills-tab-empty">Drop a file of type <span className="context-file-icon file-type-md">MD</span> here to add an agent.</div>
         ) : (
           <div className="skills-tab-tree">
-            {personas.map((persona) => (
+            {agents.map((agent) => (
               <div
-                key={persona.filename}
-                className={`skills-tree-file ${activeFilename === persona.filename ? 'active' : ''}`}
+                key={agent.filename}
+                className={`skills-tree-file ${activeFilename === agent.filename ? 'active' : ''}`}
                 style={{ paddingLeft: 12, display: 'flex', alignItems: 'center', gap: 6 }}
                 draggable
-                onClick={() => handleSelectPersona(persona)}
+                onClick={() => handleSelectAgent(agent)}
                 onDragStart={(e) => {
                   dragDropHandled.current = false
-                  e.dataTransfer.setData('x-nai-persona', persona.filename)
+                  e.dataTransfer.setData('x-nai-agent', agent.filename)
                   e.dataTransfer.effectAllowed = 'move'
                   const img = createTrashDragImage()
                   e.dataTransfer.setDragImage(img, 16, 16)
                   setTimeout(() => document.body.removeChild(img), 0)
                 }}
                 onDragEnd={async () => {
-                  if (!dragDropHandled.current) await handleDelete(persona)
+                  if (!dragDropHandled.current) await handleDelete(agent)
                 }}
               >
                 <span className="skills-item-icon file-type-md">MD</span>
-                {renamingFilename === persona.filename ? (
+                {renamingFilename === agent.filename ? (
                   <input
                     ref={renameInputRef}
                     className="skills-rename-input"
@@ -365,10 +362,10 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
                   />
                 ) : (
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {persona.name}
+                    {agent.name}
                   </span>
                 )}
-                {activeFilename === persona.filename && (
+                {activeFilename === agent.filename && (
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0, marginRight: 8 }}>
                     <polyline points="1.5,6.5 5,10 11.5,3" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -383,10 +380,10 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
       <div
         className="skills-tab-editor"
         onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('x-nai-persona')) e.preventDefault()
+          if (e.dataTransfer.types.includes('x-nai-agent')) e.preventDefault()
         }}
         onDrop={(e) => {
-          if (!e.dataTransfer.types.includes('x-nai-persona')) return
+          if (!e.dataTransfer.types.includes('x-nai-agent')) return
           e.preventDefault()
           dragDropHandled.current = true
         }}
@@ -403,7 +400,7 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
           </div>
         )}
 
-        {selectedPersona ? (
+        {selectedAgent ? (
           <>
             <div className="skills-tab-editor-toolbar">
               {isDirty && <span className="skills-tab-dirty-dot" title="Unsaved changes" />}
@@ -431,12 +428,12 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
             </div>
 
             {viewMode === 'preview' && (
-              <div className="personas-markdown">
-                <MarkdownPreview content={editorContent || selectedPersona.content} />
+              <div className="agents-markdown">
+                <MarkdownPreview content={editorContent || selectedAgent.content} />
               </div>
             )}
             {viewMode === 'source' && (
-              <pre className="personas-source">{editorContent || selectedPersona.content}</pre>
+              <pre className="agents-source">{editorContent || selectedAgent.content}</pre>
             )}
             {viewMode === 'edit' && (
               <textarea
@@ -450,11 +447,11 @@ function PersonasTabView({ activeFilename, onSelect, initialSidebarWidth, onSide
             )}
           </>
         ) : (
-          <div className="skills-tab-no-selection">Select a persona to preview or edit.</div>
+          <div className="skills-tab-no-selection">Select an agent to preview or edit.</div>
         )}
       </div>
     </div>
   )
 }
 
-export default PersonasTabView
+export default AgentsTabView

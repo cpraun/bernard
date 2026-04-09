@@ -34,7 +34,7 @@ export interface Conversation {
   title: string
   messages: Message[]
   selectedContextFiles?: string[]
-  personaFilename?: string
+  agentFilename?: string
   providerId?: string
   vectorDbBackend?: string
   createdAt: number
