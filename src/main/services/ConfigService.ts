@@ -170,3 +170,9 @@ export function getToolsDir(): string {
   return dir
 }
 
+export function getBuiltinToolsDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'bernard-tools')
+    : join(app.getAppPath(), 'resources', 'bernard-tools')
+}
+

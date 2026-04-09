@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { readFileSync, readdirSync, unlinkSync, writeFileSync, renameSync } from 'fs'
+import { readFileSync, readdirSync, unlinkSync, writeFileSync, renameSync, existsSync } from 'fs'
 import { join, extname, basename, resolve, sep } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import vm from 'vm'
 import chokidar, { type FSWatcher } from 'chokidar'
-import { getToolsDir } from '../services/ConfigService'
+import { getToolsDir, getBuiltinToolsDir } from '../services/ConfigService'
 import { isServerConfig } from '../services/MCPHostService'
+import { BUILTIN_SERVER } from '../services/ToolExecutionService'
 
 // ── Watcher ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,37 @@ export function stopToolsWatcher(): void {
     toolsWatcher.close()
     toolsWatcher = null
   }
+}
+
+// ── Built-in Tools ────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function loadBuiltinTools(): any[] {
+  const builtinDir = getBuiltinToolsDir()
+  if (!existsSync(builtinDir)) return []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const results: any[] = []
+  try {
+    const entries = readdirSync(builtinDir, { withFileTypes: true })
+    const jsonFiles = entries
+      .filter((e) => e.isFile() && extname(String(e.name)).toLowerCase() === '.json')
+      .map((e) => String(e.name))
+      .sort()
+    for (const filename of jsonFiles) {
+      try {
+        const content = readFileSync(join(builtinDir, filename), 'utf-8')
+        results.push({
+          filename: `${BUILTIN_SERVER}/${filename}`,
+          name: basename(filename, '.json'),
+          content,
+          size: content.length,
+          serverName: BUILTIN_SERVER,
+          readOnly: true
+        })
+      } catch { /* skip */ }
+    }
+  } catch { /* directory unreadable */ }
+  return results
 }
 
 // ── IPC Handlers ──────────────────────────────────────────────────────────────
@@ -83,7 +115,7 @@ export function registerToolsHandlers(): void {
     const toolsDir = getToolsDir()
     const allowedExts = ['.json', '.js']
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results: any[] = []
+    const results: any[] = loadBuiltinTools()
 
     // 1. Read top-level files (local tools)
     try {

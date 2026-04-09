@@ -17,7 +17,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import { createProvider } from '../providers/ProviderFactory'
-import { loadConfig, getToolsDir, getConfigDir } from '../services/ConfigService'
+import { loadConfig, getToolsDir, getBuiltinToolsDir, getConfigDir } from '../services/ConfigService'
+import { BUILTIN_SERVER } from '../services/ToolExecutionService'
 import { getProjectDir } from '../services/ProjectService'
 import { InteractionLogger } from '../services/InteractionLogger'
 import type { NAIRequest, NAIResponse, ToolDefinition } from '../../shared/types'
@@ -144,15 +145,25 @@ function writeInteractionLog(projectId: string | undefined, messageId: string | 
 
 function loadToolDefinitions(filenames: string[]): ToolDefinition[] {
   const toolsDir = getToolsDir()
+  const builtinDir = getBuiltinToolsDir()
   const defs: ToolDefinition[] = []
   for (const filename of filenames) {
     try {
-      const filePath = join(toolsDir, filename)
+      // Built-in tools live in the app resources directory, not the user's tools dir
+      const isBuiltin = filename.startsWith(`${BUILTIN_SERVER}/`)
+      const filePath = isBuiltin
+        ? join(builtinDir, filename.slice(BUILTIN_SERVER.length + 1))
+        : join(toolsDir, filename)
       if (!existsSync(filePath)) continue
       const content = readFileSync(filePath, 'utf-8')
       const parsed = JSON.parse(content)
       if (parsed.name) {
-        defs.push({ name: parsed.name, description: parsed.description, parameters: parsed.parameters ?? parsed.inputSchema, _mcpServer: parsed._mcpServer })
+        defs.push({
+          name: parsed.name,
+          description: parsed.description,
+          parameters: parsed.parameters ?? parsed.inputSchema,
+          _mcpServer: isBuiltin ? BUILTIN_SERVER : parsed._mcpServer
+        })
       }
     } catch (err) {
       console.error(`[providerHandlers] Failed to load tool ${filename}:`, err)

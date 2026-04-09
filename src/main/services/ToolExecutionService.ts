@@ -17,15 +17,25 @@ import { join } from 'path'
 import { readFileSync, existsSync } from 'fs'
 import { getToolsDir } from './ConfigService'
 import * as MCPHostService from './MCPHostService'
+import { executeBuiltinTool } from './BuiltinToolsService'
+
+/** Sentinel value stored in ToolDefinition._mcpServer for built-in Bernard tools. */
+export const BUILTIN_SERVER = '__builtin__'
 
 /**
- * Centralized tool execution — routes to MCP server or local JS implementation.
+ * Centralized tool execution — routes to built-in, MCP server, or local JS implementation.
  */
 export async function executeToolCall(
   name: string,
   args: Record<string, unknown>,
   mcpServer?: string
 ): Promise<unknown> {
+  // Route 0: Built-in Bernard tool
+  if (mcpServer === BUILTIN_SERVER) {
+    console.log(`[ToolExecution] Routing "${name}" to built-in implementation`)
+    return executeBuiltinTool(name, args)
+  }
+
   // Route 1: MCP tool — delegate to the MCP server
   if (mcpServer) {
     console.log(`[ToolExecution] Routing "${name}" to MCP server "${mcpServer}"`)
