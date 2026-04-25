@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 import Anthropic from '@anthropic-ai/sdk'
+import { readdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import type { NAIProvider, ModelInfo } from './NAIProvider'
 import type { ChatMessage, FileContext, NAIResponse, ToolDefinition } from '../../shared/types'
 import type { InteractionLogger } from '../services/InteractionLogger'
 import type { RAGQueryFn } from './OllamaProvider'
-import { executeToolCall, isToolError } from '../services/ToolExecutionService'
+import { executeToolCall, isToolError, BUILTIN_SERVER } from '../services/ToolExecutionService'
+import type { ToolExecutionContext } from '../services/ToolExecutionService'
+import { getBuiltinToolsDir } from '../services/ConfigService'
 
 export class AnthropicProvider implements NAIProvider {
   readonly id = 'anthropic'
@@ -209,7 +213,11 @@ export class AnthropicProvider implements NAIProvider {
         let functionResult: Record<string, unknown>
         try {
           const toolDef = toolDefinitions?.find(t => t.name === fcName)
-          functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer) as Record<string, unknown>
+          const execContext: ToolExecutionContext = {
+            runSubAgent: (prompt, subSignal, model) =>
+              this.runSubAgent(prompt, subSignal ?? signal, model)
+          }
+          functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer, execContext) as Record<string, unknown>
           const errCheck = isToolError(functionResult)
           if (errCheck.isError) {
             console.error(`[AnthropicProvider] Tool "${fcName}" returned error:`, errCheck.message)
@@ -234,6 +242,7 @@ export class AnthropicProvider implements NAIProvider {
             }
           }
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') throw err
           console.error(`[AnthropicProvider] Tool "${fcName}" execution failed:`, err)
           functionResult = { error: String(err) }
           logger?.log('TOOL_ERROR', `${fcName} — ${String(err)}`)
@@ -325,6 +334,104 @@ export class AnthropicProvider implements NAIProvider {
       },
       sources
     }
+  }
+
+  /**
+   * Run a sub-agent agentic loop using the same Anthropic client.
+   * Loads all built-in tools from disk so the sub-agent can call read, task, etc.
+   * Recursion is capped at MAX_DEPTH to prevent runaway nesting.
+   */
+  private async runSubAgent(
+    prompt: string,
+    signal?: AbortSignal,
+    modelOverride?: string,
+    depth = 0
+  ): Promise<string> {
+    const MAX_DEPTH = 3
+    if (depth >= MAX_DEPTH) {
+      return `[Sub-agent depth limit (${MAX_DEPTH}) reached]`
+    }
+
+    const model = modelOverride ?? this.model
+
+    // Load all built-in tool schemas from disk
+    const builtinDir = getBuiltinToolsDir()
+    const builtinTools: Anthropic.Tool[] = readdirSync(builtinDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const def = JSON.parse(readFileSync(join(builtinDir, f), 'utf-8'))
+        return {
+          name: def.name as string,
+          description: (def.description ?? '') as string,
+          input_schema: this.convertParameters(
+            def.parameters ?? { type: 'object', properties: {} }
+          ) as Anthropic.Tool['input_schema']
+        }
+      })
+
+    let messages: Anthropic.MessageParam[] = [
+      { role: 'user', content: prompt }
+    ]
+
+    // Sub-agent agentic loop — continues until stop_reason is not 'tool_use'
+    while (true) {
+      const createPromise = this.client.messages.create({
+        model,
+        max_tokens: this.maxOutputTokens,
+        messages,
+        tools: builtinTools
+      })
+
+      const response = signal
+        ? await Promise.race([
+            createPromise,
+            new Promise<never>((_, reject) => {
+              if (signal.aborted) reject(new DOMException('Aborted', 'AbortError'))
+              else signal.addEventListener(
+                'abort',
+                () => reject(new DOMException('Aborted', 'AbortError')),
+                { once: true }
+              )
+            })
+          ])
+        : await createPromise
+
+      if (response.stop_reason !== 'tool_use') {
+        return response.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text)
+          .join('')
+      }
+
+      const toolBlock = response.content.find(
+        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+      )
+      if (!toolBlock) break
+
+      const subArgs = (toolBlock.input ?? {}) as Record<string, unknown>
+
+      // Build context for nested tool execution (passes runSubAgent for task recursion)
+      const subContext: ToolExecutionContext = {
+        runSubAgent: (p, s, m) => this.runSubAgent(p, s, m, depth + 1)
+      }
+
+      const toolResult = await executeToolCall(toolBlock.name, subArgs, BUILTIN_SERVER, subContext)
+
+      messages = [
+        ...messages,
+        { role: 'assistant', content: response.content },
+        {
+          role: 'user',
+          content: [{
+            type: 'tool_result',
+            tool_use_id: toolBlock.id,
+            content: JSON.stringify(toolResult)
+          }]
+        }
+      ]
+    }
+
+    return ''
   }
 
   /**

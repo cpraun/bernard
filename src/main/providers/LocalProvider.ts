@@ -13,63 +13,80 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { readdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import type { ModelInfo, NAIProvider } from './NAIProvider'
 import type { ChatMessage, FileContext, NAIResponse, ToolDefinition } from '../../shared/types'
 import type { InteractionLogger } from '../services/InteractionLogger'
-import { executeToolCall, isToolError } from '../services/ToolExecutionService'
+import { executeToolCall, isToolError, BUILTIN_SERVER } from '../services/ToolExecutionService'
+import type { ToolExecutionContext } from '../services/ToolExecutionService'
+import { getBuiltinToolsDir } from '../services/ConfigService'
 
 export type RAGQueryFn = (text: string) => Promise<{ title: string; text: string }[]>
+
+/** Maximum number of parallel tool calls executed per round. Guards against models that repeat the same call many times. */
+const MAX_PARALLEL_TOOLS = 10
 
 /**
  * Gemma-specific tool-call fallback parser.
  *
- * Google's Gemma models (e.g. gemma-3-12b served via LM Studio) do not implement
- * the OpenAI function-calling protocol natively. Instead of populating `tool_calls`
- * in the response, they encode the tool invocation as plain text inside `content`
- * using Gemma's own format:
+ * Gemma models served via LM Studio may encode tool calls as plain text in
+ * `content` rather than populating the OpenAI `tool_calls` field.  This
+ * function recognises both known Gemma formats and converts each occurrence
+ * into a synthetic OpenAI-style tool-call object for the rest of the pipeline.
  *
+ * **Gemma 3** (backtick-fenced block):
  *   ```tool_request]
  *   {"name": "<toolName>", "arguments": { ... }}
  *   [END_TOOL_REQUEST]
  *
- * The API returns `finish_reason: "stop"` and an empty `tool_calls: []` array,
- * so the standard tool-dispatch path is never triggered.
+ * **Gemma 4** (XML-style tag, emitted when LM Studio "Tool Call Format" is set
+ *   to "native" / "disabled" so no OpenAI conversion is applied):
+ *   <tool_call>
+ *   {"name": "<toolName>", "arguments": { ... }}
+ *   </tool_call>
  *
- * This function detects that pattern in the message content and converts each
- * occurrence into a synthetic OpenAI-style tool-call object so the rest of the
- * provider pipeline can execute it normally.
- *
- * NOTE: This is intentionally model-specific. If Gemma or LM Studio ever gains
- * proper OpenAI tool-calling support this fallback will simply never trigger,
- * because the standard path (non-empty `tool_calls`) takes priority.
+ * NOTE: This fallback only fires when `tool_calls` is empty.  If LM Studio
+ * successfully converts to OpenAI format the standard path takes priority and
+ * this function is never called.
  */
 function parseGemmaToolCalls(content: string): { id: string; function: { name: string; arguments: string } }[] {
   const results: { id: string; function: { name: string; arguments: string } }[] = []
-  // Match one or more tool_request blocks in a single response.
-  // Gemma uses at least two variants of this format:
-  //   Variant A:  ```tool_request]\n{...}\n[END_TOOL_REQUEST]
-  //   Variant B:  ```tool_request\n{...}\n```
-  // The regex below handles both by making the `]` optional and accepting
-  // either `[END_TOOL_REQUEST]` or a closing ``` as the block terminator.
-  const pattern = /```tool_request\]?\s*(\{[\s\S]*?\})\s*(?:\[END_TOOL_REQUEST\]|```)/g
   let match: RegExpExecArray | null
   let index = 0
-  while ((match = pattern.exec(content)) !== null) {
+
+  // Gemma 3: ```tool_request] / ```tool_request  …  [END_TOOL_REQUEST] / ```
+  const gemma3Pattern = /```tool_request\]?\s*(\{[\s\S]*?\})\s*(?:\[END_TOOL_REQUEST\]|```)/g
+  while ((match = gemma3Pattern.exec(content)) !== null) {
     try {
       const parsed = JSON.parse(match[1]) as { name?: string; arguments?: Record<string, unknown> }
       if (typeof parsed.name === 'string') {
         results.push({
           id: `gemma-tool-${Date.now()}-${index++}`,
-          function: {
-            name: parsed.name,
-            arguments: JSON.stringify(parsed.arguments ?? {})
-          }
+          function: { name: parsed.name, arguments: JSON.stringify(parsed.arguments ?? {}) }
         })
       }
     } catch {
-      // Malformed JSON inside the block — skip this occurrence
+      // Malformed JSON — skip
     }
   }
+
+  // Gemma 4: <tool_call> … </tool_call>
+  const gemma4Pattern = /<tool_call>\s*(\{[\s\S]*?\})\s*<\/tool_call>/gi
+  while ((match = gemma4Pattern.exec(content)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]) as { name?: string; arguments?: Record<string, unknown> }
+      if (typeof parsed.name === 'string') {
+        results.push({
+          id: `gemma-tool-${Date.now()}-${index++}`,
+          function: { name: parsed.name, arguments: JSON.stringify(parsed.arguments ?? {}) }
+        })
+      }
+    } catch {
+      // Malformed JSON — skip
+    }
+  }
+
   return results
 }
 
@@ -255,6 +272,10 @@ export class LocalProvider implements NAIProvider {
     const toolsUsed: { name: string; args?: Record<string, unknown>; error?: boolean }[] = []
     const MAX_TOOL_ROUNDS = 10
 
+    const execContext: ToolExecutionContext = {
+      runSubAgent: (prompt, subSignal, model) => this.runSubAgent(prompt, subSignal ?? signal, model)
+    }
+
     // Loop to handle chained and parallel tool calls
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       let toolCalls = choice.message?.tool_calls as { id: string; function: { name: string; arguments: string } }[] | undefined
@@ -274,6 +295,20 @@ export class LocalProvider implements NAIProvider {
 
       if (!toolCalls || toolCalls.length === 0) break
 
+      // Deduplicate: keep only the first occurrence of each identical name+arguments pair.
+      // Some models (e.g. Gemma 4) repeat the same call dozens or hundreds of times.
+      const seenCalls = new Set<string>()
+      toolCalls = toolCalls.filter(tc => {
+        const key = `${tc.function.name}:${tc.function.arguments}`
+        if (seenCalls.has(key)) return false
+        seenCalls.add(key)
+        return true
+      })
+      if (toolCalls.length > MAX_PARALLEL_TOOLS) {
+        console.warn(`[LocalProvider] Capping ${toolCalls.length} parallel tool calls to ${MAX_PARALLEL_TOOLS} per round`)
+        toolCalls = toolCalls.slice(0, MAX_PARALLEL_TOOLS)
+      }
+
       // Append the assistant message (with tool_calls) to conversation
       apiMessages.push(choice.message)
 
@@ -289,7 +324,7 @@ export class LocalProvider implements NAIProvider {
         let functionResult: Record<string, unknown>
         try {
           const toolDef = toolDefinitions?.find(t => t.name === fcName)
-          functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer) as Record<string, unknown>
+          functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer, execContext) as Record<string, unknown>
           const errCheck = isToolError(functionResult)
           if (errCheck.isError) {
             console.error(`[LocalProvider] Tool "${fcName}" returned error:`, errCheck.message)
@@ -313,6 +348,7 @@ export class LocalProvider implements NAIProvider {
             }
           }
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') throw err
           console.error(`[LocalProvider] Tool "${fcName}" execution failed:`, err)
           functionResult = { error: String(err) }
           logger?.log('TOOL_ERROR', `${fcName} — ${String(err)}`)
@@ -365,6 +401,107 @@ export class LocalProvider implements NAIProvider {
       sources,
       toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
     }
+  }
+
+  /**
+   * Run a sub-agent agentic loop using the same OpenAI-compatible endpoint.
+   * Loads all built-in tools from disk and loops until the model stops calling tools.
+   * Recursion is capped at MAX_DEPTH to prevent runaway nesting.
+   */
+  private async runSubAgent(
+    prompt: string,
+    signal?: AbortSignal,
+    modelOverride?: string,
+    depth = 0
+  ): Promise<string> {
+    const MAX_DEPTH = 3
+    if (depth >= MAX_DEPTH) return `[Sub-agent depth limit (${MAX_DEPTH}) reached]`
+
+    const model = modelOverride ?? this.model
+
+    // Load all built-in tool schemas in OpenAI format
+    const builtinDir = getBuiltinToolsDir()
+    const tools = readdirSync(builtinDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const def = JSON.parse(readFileSync(join(builtinDir, f), 'utf-8'))
+        return {
+          type: 'function' as const,
+          function: {
+            name: def.name as string,
+            ...(def.description ? { description: def.description as string } : {}),
+            ...(def.parameters ? { parameters: this.convertParameters(def.parameters) } : {})
+          }
+        }
+      })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let messages: any[] = [{ role: 'user', content: prompt }]
+
+    const MAX_TOOL_ROUNDS = 10
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: any = { messages, tools }
+      if (model) body.model = model
+      if (this.maxOutputTokens !== undefined) body.max_tokens = this.maxOutputTokens
+
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal
+      })
+      if (!res.ok) throw new Error(`OpenAI Local error ${res.status}: ${await res.text()}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = (await res.json()) as any
+      const choice = json.choices[0]
+
+      let toolCalls = choice.message?.tool_calls as { id: string; function: { name: string; arguments: string } }[] | undefined
+
+      // Gemma fallback: same as in sendMessage
+      if ((!toolCalls || toolCalls.length === 0) && choice.message?.content) {
+        const gemmaToolCalls = parseGemmaToolCalls(choice.message.content)
+        if (gemmaToolCalls.length > 0) {
+          toolCalls = gemmaToolCalls
+          choice.message = { ...choice.message, content: '', tool_calls: gemmaToolCalls }
+        }
+      }
+
+      if (!toolCalls || toolCalls.length === 0) {
+        return choice.message?.content ?? ''
+      }
+
+      // Deduplicate and cap — same guard as in sendMessage
+      const seenSubCalls = new Set<string>()
+      toolCalls = toolCalls.filter(tc => {
+        const key = `${tc.function.name}:${tc.function.arguments}`
+        if (seenSubCalls.has(key)) return false
+        seenSubCalls.add(key)
+        return true
+      })
+      if (toolCalls.length > MAX_PARALLEL_TOOLS) {
+        console.warn(`[LocalProvider/runSubAgent] Capping ${toolCalls.length} parallel tool calls to ${MAX_PARALLEL_TOOLS}`)
+        toolCalls = toolCalls.slice(0, MAX_PARALLEL_TOOLS)
+      }
+
+      messages.push(choice.message)
+
+      const subContext: ToolExecutionContext = {
+        runSubAgent: (p, s, m) => this.runSubAgent(p, s, m, depth + 1)
+      }
+
+      for (const tc of toolCalls) {
+        const fcName = tc.function.name
+        const fcArgs: Record<string, unknown> = typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments ?? {}
+
+        const toolResult = await executeToolCall(fcName, fcArgs, BUILTIN_SERVER, subContext)
+        messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(toolResult) })
+      }
+    }
+
+    return ''
   }
 
   /**

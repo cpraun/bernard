@@ -3,6 +3,9 @@
     "additionalDirectories": [
       "/Users/praun/claude/bernard/resources/base-directory/demo-profile/commands",
       "/Users/praun/claude/bernard/resources/base-directory/demo-profile/agents"
+    ],
+    "allow": [
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

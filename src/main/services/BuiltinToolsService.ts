@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import { readFileSync, existsSync } from 'fs'
+import type { ToolExecutionContext } from './ToolExecutionService'
 
 /**
  * Execute a built-in Bernard tool by name.
@@ -21,11 +22,16 @@ import { readFileSync, existsSync } from 'fs'
  */
 export async function executeBuiltinTool(
   name: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext
 ): Promise<unknown> {
   switch (name) {
     case 'read':
       return builtinRead(args)
+    case 'task':
+      return builtinTask(args, context)
+    case 'web_fetch':
+      return builtinWebFetch(args)
     default:
       return { error: `Unknown built-in tool: "${name}"` }
   }
@@ -63,4 +69,117 @@ function builtinRead(args: Record<string, unknown>): unknown {
     .join('\n')
 
   return { result: numbered, totalLines: lines.length, offset, linesRead: sliced.length }
+}
+
+// ── web_fetch ─────────────────────────────────────────────────────────────────
+
+async function builtinWebFetch(args: Record<string, unknown>): Promise<unknown> {
+  const url = args['url']
+  if (typeof url !== 'string' || !url.trim()) {
+    return { error: 'url must be a non-empty string' }
+  }
+
+  // Validate URL scheme
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return { error: `Invalid URL: ${url}` }
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return { error: `Unsupported URL scheme: ${parsedUrl.protocol} — only http and https are allowed` }
+  }
+
+  const maxLength =
+    typeof args['max_length'] === 'number'
+      ? Math.max(1, Math.floor(args['max_length']))
+      : 20_000
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 Bernard/1.0' },
+      signal: AbortSignal.timeout(30_000)
+    })
+  } catch (err) {
+    return { error: `Fetch failed: ${String(err)}` }
+  }
+
+  if (!response.ok) {
+    return { error: `HTTP ${response.status}: ${response.statusText}` }
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+
+  let body: string
+  try {
+    body = await response.text()
+  } catch (err) {
+    return { error: `Failed to read response body: ${String(err)}` }
+  }
+
+  if (contentType.includes('text/html')) {
+    body = htmlToText(body)
+  }
+
+  if (body.length > maxLength) {
+    body = body.slice(0, maxLength) + `\n\n[Content truncated at ${maxLength} characters]`
+  }
+
+  return { url, contentType, content: body }
+}
+
+/**
+ * Convert an HTML string to readable plain text.
+ * Removes scripts/styles, collapses tags to whitespace, and decodes entities.
+ */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+// ── task ──────────────────────────────────────────────────────────────────────
+
+async function builtinTask(
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext
+): Promise<unknown> {
+  const prompt = args['prompt']
+  if (typeof prompt !== 'string' || !prompt.trim()) {
+    return { error: 'prompt must be a non-empty string' }
+  }
+
+  if (!context?.runSubAgent) {
+    return { error: 'task tool is not supported by the current provider' }
+  }
+
+  const model = typeof args['model'] === 'string' ? args['model'] : undefined
+
+  try {
+    const result = await context.runSubAgent(prompt, undefined, model)
+    return { result, _note: 'Task completed. Summarise the result for the user. Do NOT call task again.' }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    return { error: `Sub-agent failed: ${String(err)}` }
+  }
 }
