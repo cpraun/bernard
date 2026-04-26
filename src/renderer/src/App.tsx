@@ -25,7 +25,7 @@ import WelcomePopup from './components/WelcomePopup'
 import SettingsView from './views/SettingsView'
 import SkillsTabView from './views/SkillsTabView'
 import CommandsTabView from './views/CommandsTabView'
-import PersonasTabView from './views/PersonasTabView'
+import AgentsTabView from './views/AgentsTabView'
 import ToolsTabView from './views/ToolsTabView'
 import infoHtml from './assets/info.html?raw'
 
@@ -47,7 +47,7 @@ function stripFrontmatter(content: string): string {
   return content.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '')
 }
 
-type AppTab = 'chat' | 'personas' | 'commands' | 'skills' | 'tools' | 'settings' | 'info'
+type AppTab = 'chat' | 'agents' | 'commands' | 'skills' | 'tools' | 'settings' | 'info'
 
 function createTrashDragImage(): HTMLElement {
   const el = document.createElement('div')
@@ -79,22 +79,23 @@ function App(): React.JSX.Element {
   const [totalCompletionTokens, setTotalCompletionTokens] = useState(0)
   const convTokenData = useRef<Map<string, { lastUsage: { promptTokens: number; completionTokens: number } | null; totalCompletionTokens: number }>>(new Map())
   const [syncStatus, setSyncStatus] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [showSplash, setShowSplash] = useState(true)
   const [splashFading, setSplashFading] = useState(false)
   const [splashStatus, setSplashStatus] = useState('Starting...')
   const [showWelcome, setShowWelcome] = useState(false)
   const [sessionContext, setSessionContext] = useState<{ role: string; content: string }[]>([])
-  const [activePersonaFilename, setActivePersonaFilename] = useState<string | null>(
-    () => localStorage.getItem('activePersonaFilename')
+  const [activeAgentFilename, setActiveAgentFilename] = useState<string | null>(
+    () => localStorage.getItem('activeAgentFilename')
   )
-  const [activePersonaContent, setActivePersonaContent] = useState<string | null>(null)
-  const [personasList, setPersonasList] = useState<{ filename: string; name: string; content: string }[]>([])
+  const [activeAgentContent, setActiveAgentContent] = useState<string | null>(null)
+  const [agentsList, setAgentsList] = useState<{ filename: string; name: string; content: string }[]>([])
   const [loggingEnabled, setLoggingEnabled] = useState(true)
   const [messageLogIds, setMessageLogIds] = useState<Set<string>>(new Set())
   const [selectedToolFilenames, setSelectedToolFilenames] = useState<Set<string>>(new Set())
   const [conditionalToolFilenames, setConditionalToolFilenames] = useState<Set<string>>(new Set())
   const [uiStateLoaded, setUIStateLoaded] = useState(false)
-  const uiPanelSizes = useRef<{ chatSidebar?: number; personasSidebar?: number; commandsSidebar?: number; skillsSidebar?: number; toolsSidebar?: number; contextPanelHeight?: number; chatInputHeight?: number }>({})
+  const uiPanelSizes = useRef<{ chatSidebar?: number; agentsSidebar?: number; commandsSidebar?: number; skillsSidebar?: number; toolsSidebar?: number; contextPanelHeight?: number; chatInputHeight?: number }>({})
   const uiCollapsedMCPServers = useRef<string[] | undefined>(undefined)
   const uiCollapsedSkillDirs = useRef<string[] | undefined>(undefined)
   const splashTimers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -278,42 +279,42 @@ function App(): React.JSX.Element {
       })
       setLoggingEnabled(s.loggingEnabled !== false)
       window.api.checkProviders().then(setAvailableProviders)
-      window.api.listPersonas().then((list) => setPersonasList(list.map((p) => ({ filename: p.filename, name: p.name, content: p.content }))))
+      window.api.listAgents().then((list) => setAgentsList(list.map((p) => ({ filename: p.filename, name: p.name, content: p.content }))))
     })
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When switching back to the Chat tab, sync the persona selection
-  // to match the persona of the currently active conversation
+  // When switching back to the Chat tab, sync the agent selection
+  // to match the agent of the currently active conversation
   useEffect(() => {
     if (activeTab !== 'chat' || !currentConversation) return
-    const chatPersona = currentConversation.personaFilename ?? null
-    if (chatPersona !== activePersonaFilename) {
-      setActivePersonaFilename(chatPersona)
-      if (chatPersona) {
-        localStorage.setItem('activePersonaFilename', chatPersona)
-        window.api.listPersonas().then((list) => {
-          const found = list.find((p) => p.filename === chatPersona)
-          setActivePersonaContent(found?.content ?? null)
+    const chatAgent = currentConversation.agentFilename ?? null
+    if (chatAgent !== activeAgentFilename) {
+      setActiveAgentFilename(chatAgent)
+      if (chatAgent) {
+        localStorage.setItem('activeAgentFilename', chatAgent)
+        window.api.listAgents().then((list) => {
+          const found = list.find((p) => p.filename === chatAgent)
+          setActiveAgentContent(found?.content ?? null)
         })
       } else {
-        localStorage.removeItem('activePersonaFilename')
-        setActivePersonaContent(null)
+        localStorage.removeItem('activeAgentFilename')
+        setActiveAgentContent(null)
       }
     }
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore active persona content from the personas list on mount
+  // Restore active agent content from the agents list on mount
   useEffect(() => {
-    if (!activePersonaFilename) return
-    window.api.listPersonas().then((list) => {
-      const found = list.find((p) => p.filename === activePersonaFilename)
+    if (!activeAgentFilename) return
+    window.api.listAgents().then((list) => {
+      const found = list.find((p) => p.filename === activeAgentFilename)
       if (found) {
-        setActivePersonaContent(found.content)
+        setActiveAgentContent(found.content)
       } else {
         // File no longer exists — clear the stale selection
-        setActivePersonaFilename(null)
-        setActivePersonaContent(null)
-        localStorage.removeItem('activePersonaFilename')
+        setActiveAgentFilename(null)
+        setActiveAgentContent(null)
+        localStorage.removeItem('activeAgentFilename')
       }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -417,14 +418,14 @@ function App(): React.JSX.Element {
     setTotalCompletionTokens(0)
   }
 
-  const handleSwitchPersonaFromStatus = (newFilename: string): void => {
-    const selected = newFilename ? personasList.find((p) => p.filename === newFilename) : null
-    setActivePersonaFilename(selected?.filename ?? null)
-    setActivePersonaContent(selected?.content ?? null)
+  const handleSwitchAgentFromStatus = (newFilename: string): void => {
+    const selected = newFilename ? agentsList.find((p) => p.filename === newFilename) : null
+    setActiveAgentFilename(selected?.filename ?? null)
+    setActiveAgentContent(selected?.content ?? null)
     if (selected) {
-      localStorage.setItem('activePersonaFilename', selected.filename)
+      localStorage.setItem('activeAgentFilename', selected.filename)
     } else {
-      localStorage.removeItem('activePersonaFilename')
+      localStorage.removeItem('activeAgentFilename')
     }
     // Start a new chat
     setCurrentConversation(null)
@@ -461,8 +462,8 @@ function App(): React.JSX.Element {
       setContextFiles((prev) => prev.map((f) => ({ ...f, selected: false })))
       setLastUsage(null)
       setTotalCompletionTokens(0)
-      setActivePersonaFilename(null)
-      setActivePersonaContent(null)
+      setActiveAgentFilename(null)
+      setActiveAgentContent(null)
       return
     }
     const conv = await window.api.loadConversation(activeProjectId, id)
@@ -476,16 +477,16 @@ function App(): React.JSX.Element {
       setLastUsage(saved?.lastUsage ?? null)
       setTotalCompletionTokens(saved?.totalCompletionTokens ?? 0)
 
-      // Restore the persona associated with this conversation (set directly, not via
-      // handlePersonaSelect which would try to persist back to the old conversation)
-      if (conv.personaFilename) {
-        const personas = await window.api.listPersonas()
-        const persona = personas.find((p) => p.filename === conv.personaFilename)
-        setActivePersonaFilename(persona ? conv.personaFilename : null)
-        setActivePersonaContent(persona?.content ?? null)
+      // Restore the agent associated with this conversation (set directly, not via
+      // handleAgentSelect which would try to persist back to the old conversation)
+      if (conv.agentFilename) {
+        const agents = await window.api.listAgents()
+        const agent = agents.find((p) => p.filename === conv.agentFilename)
+        setActiveAgentFilename(agent ? conv.agentFilename : null)
+        setActiveAgentContent(agent?.content ?? null)
       } else {
-        setActivePersonaFilename(null)
-        setActivePersonaContent(null)
+        setActiveAgentFilename(null)
+        setActiveAgentContent(null)
       }
 
       // Restore the AI provider and vector DB associated with this conversation
@@ -549,13 +550,13 @@ function App(): React.JSX.Element {
     await refreshConversations(activeProjectId)
   }
 
-  const handlePersonaSelect = (filename: string | null, content: string | null): void => {
-    setActivePersonaFilename(filename)
-    setActivePersonaContent(content)
+  const handleAgentSelect = (filename: string | null, content: string | null): void => {
+    setActiveAgentFilename(filename)
+    setActiveAgentContent(content)
     if (filename) {
-      localStorage.setItem('activePersonaFilename', filename)
+      localStorage.setItem('activeAgentFilename', filename)
     } else {
-      localStorage.removeItem('activePersonaFilename')
+      localStorage.removeItem('activeAgentFilename')
     }
     if (activeTab !== 'chat') shouldDeselectChat.current = true
   }
@@ -688,21 +689,21 @@ function App(): React.JSX.Element {
     let conv = currentConversation
     let hiddenContext = sessionContext
 
-    // For existing conversations, enforce the stored persona and provider
+    // For existing conversations, enforce the stored agent and provider
     if (conv) {
-      // Restore persona if it differs from what's currently active
-      if (conv.personaFilename && conv.personaFilename !== activePersonaFilename) {
-        const personas = await window.api.listPersonas()
-        const persona = personas.find((p) => p.filename === conv!.personaFilename)
-        if (persona) {
-          setActivePersonaFilename(conv.personaFilename)
-          setActivePersonaContent(persona.content)
-          if (conv.personaFilename) localStorage.setItem('activePersonaFilename', conv.personaFilename)
+      // Restore agent if it differs from what's currently active
+      if (conv.agentFilename && conv.agentFilename !== activeAgentFilename) {
+        const agents = await window.api.listAgents()
+        const agent = agents.find((p) => p.filename === conv!.agentFilename)
+        if (agent) {
+          setActiveAgentFilename(conv.agentFilename)
+          setActiveAgentContent(agent.content)
+          if (conv.agentFilename) localStorage.setItem('activeAgentFilename', conv.agentFilename)
         }
-      } else if (!conv.personaFilename && activePersonaFilename) {
-        setActivePersonaFilename(null)
-        setActivePersonaContent(null)
-        localStorage.removeItem('activePersonaFilename')
+      } else if (!conv.agentFilename && activeAgentFilename) {
+        setActiveAgentFilename(null)
+        setActiveAgentContent(null)
+        localStorage.removeItem('activeAgentFilename')
       }
 
       // Restore provider and vector DB if they differ from what's currently active
@@ -741,13 +742,13 @@ function App(): React.JSX.Element {
       conv = await window.api.createConversation(activeProjectId, title)
       const settings = await window.api.getSettings()
       const currentVdb = settings.vectorDb?.backend ?? (settings.vectorDb?.enabled !== false ? 'lancedb' : 'none')
-      conv = { ...conv, personaFilename: activePersonaFilename ?? undefined, providerId: settings.defaultProvider, vectorDbBackend: currentVdb }
+      conv = { ...conv, agentFilename: activeAgentFilename ?? undefined, providerId: settings.defaultProvider, vectorDbBackend: currentVdb }
       setCurrentConversation(conv)
 
-      // Set the active persona as a system message for the session
-      if (activePersonaContent) {
+      // Set the active agent as a system message for the session
+      if (activeAgentContent) {
         hiddenContext = [
-          { role: 'system', content: stripFrontmatter(activePersonaContent) }
+          { role: 'system', content: stripFrontmatter(activeAgentContent) }
         ]
         setSessionContext(hiddenContext)
       }
@@ -841,6 +842,7 @@ function App(): React.JSX.Element {
             id: pendingId,
             role: 'assistant' as const,
             content: response.content,
+            reasoning: response.reasoning,
             timestamp: Date.now(),
             sources: response.sources,
             toolsUsed: response.toolsUsed,
@@ -934,7 +936,7 @@ function App(): React.JSX.Element {
     <div className="app-layout">
       <div className="app-titlebar">
         <div className="app-titlebar-center">
-          {(['chat', 'personas', 'commands', 'skills', 'tools', 'settings'] as AppTab[]).map((tab) => (
+          {(['chat', 'agents', 'commands', 'skills', 'tools', 'settings'] as AppTab[]).map((tab) => (
             <button
               key={tab}
               className={`app-tab ${activeTab === tab ? 'active' : ''}`}
@@ -1045,8 +1047,8 @@ function App(): React.JSX.Element {
                           onClick={() => handleSelectConversation(conv.id)}
                         >
                           <span className="conversation-item-title">{conv.title}</span>
-                          <span className="conversation-item-persona">
-                            Persona: {conv.personaFilename ? conv.personaFilename.replace(/\.md$/i, '') : 'none'}
+                          <span className="conversation-item-agent">
+                            Agent: {conv.agentFilename ? conv.agentFilename.replace(/\.md$/i, '') : 'none'}
                           </span>
                         </button>
                       </li>
@@ -1099,15 +1101,15 @@ function App(): React.JSX.Element {
               isOpen={showSkillsPanel}
               onToggle={() => setShowSkillsPanel(!showSkillsPanel)}
               onAttachCommand={handleAttachCommand}
-              activePersonaName={(currentConversation?.personaFilename ?? activePersonaFilename)?.replace(/\.md$/i, '') ?? null}
+              activeAgentName={(currentConversation?.agentFilename ?? activeAgentFilename)?.replace(/\.md$/i, '') ?? null}
             />
           </>
         )}
-        {activeTab === 'personas' && (
-          <PersonasTabView activeFilename={activePersonaFilename} onSelect={handlePersonaSelect} initialSidebarWidth={uiPanelSizes.current.personasSidebar} onSidebarResize={(w) => { uiPanelSizes.current.personasSidebar = w }} />
+        {activeTab === 'agents' && (
+          <AgentsTabView activeFilename={activeAgentFilename} onSelect={handleAgentSelect} initialSidebarWidth={uiPanelSizes.current.agentsSidebar} onSidebarResize={(w) => { uiPanelSizes.current.agentsSidebar = w }} onStatusMessage={setStatusMessage} />
         )}
-        {activeTab === 'commands' && <CommandsTabView initialSidebarWidth={uiPanelSizes.current.commandsSidebar} onSidebarResize={(w) => { uiPanelSizes.current.commandsSidebar = w }} />}
-        {activeTab === 'skills' && <SkillsTabView initialSidebarWidth={uiPanelSizes.current.skillsSidebar} initialCollapsedSkillDirs={uiCollapsedSkillDirs.current} onSidebarResize={(w) => { uiPanelSizes.current.skillsSidebar = w }} />}
+        {activeTab === 'commands' && <CommandsTabView initialSidebarWidth={uiPanelSizes.current.commandsSidebar} onSidebarResize={(w) => { uiPanelSizes.current.commandsSidebar = w }} onStatusMessage={setStatusMessage} />}
+        {activeTab === 'skills' && <SkillsTabView initialSidebarWidth={uiPanelSizes.current.skillsSidebar} initialCollapsedSkillDirs={uiCollapsedSkillDirs.current} onSidebarResize={(w) => { uiPanelSizes.current.skillsSidebar = w }} onStatusMessage={setStatusMessage} />}
         {activeTab === 'tools' && <ToolsTabView selectedFilenames={selectedToolFilenames} conditionalFilenames={conditionalToolFilenames} onSelectionChange={setSelectedToolFilenames} onConditionalChange={setConditionalToolFilenames} initialSidebarWidth={uiPanelSizes.current.toolsSidebar} initialCollapsedMCPServers={uiCollapsedMCPServers.current} onSidebarResize={(w) => { uiPanelSizes.current.toolsSidebar = w }} />}
         {activeTab === 'settings' && <SettingsView onSettingsChange={(s) => {
           const pid = s.defaultProvider
@@ -1143,6 +1145,11 @@ function App(): React.JSX.Element {
               <span className="status-spinner" />
               <span className="status-label">Sending message…</span>
             </>
+          ) : statusMessage ? (
+            <>
+              <span className="status-spinner" />
+              <span className="status-label">{statusMessage}</span>
+            </>
           ) : lastUsage ? (
             <span className="status-label">
               ctx&thinsp;{lastUsage.promptTokens.toLocaleString()}
@@ -1153,14 +1160,14 @@ function App(): React.JSX.Element {
         </div>
         {providerInfo && (
           <div className="status-right">
-            <span style={{ color: '#666' }}>Persona: </span>
+            <span style={{ color: '#666' }}>Agent: </span>
             <select
               className="status-provider-select"
-              value={activePersonaFilename ?? ''}
-              onChange={(e) => handleSwitchPersonaFromStatus(e.target.value)}
+              value={activeAgentFilename ?? ''}
+              onChange={(e) => handleSwitchAgentFromStatus(e.target.value)}
             >
               <option value="">none</option>
-              {personasList.map((p) => (
+              {agentsList.map((p) => (
                 <option key={p.filename} value={p.filename}>{p.name}</option>
               ))}
             </select>
@@ -1185,7 +1192,7 @@ function App(): React.JSX.Element {
               {[
                 { id: 'anthropic', label: 'Anthropic' },
                 { id: 'gemini', label: 'Gemini' },
-                { id: 'vertex', label: 'Vertex' },
+                { id: 'vertex', label: 'Google Enterprise Agent' },
                 { id: 'ollama', label: 'Ollama' },
                 { id: 'openai-local', label: 'OpenAI-Local' }
               ].filter((p) => availableProviders[p.id] || p.id === providerInfo.id).map((p) => (

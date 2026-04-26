@@ -317,7 +317,7 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
 
   const handleClickTool = (tool: ToolFile): void => {
     // Only JSON files are selectable as function tools (not MCP config files, not from disconnected servers, not if JS has parse errors)
-    const serverDown = tool.serverName ? mcpStatuses.get(tool.serverName) === false : false
+    const serverDown = (tool.serverName && tool.serverName !== BUILTIN_SERVER) ? mcpStatuses.get(tool.serverName) === false : false
     if (tool.filename.toLowerCase().endsWith('.json') && !tool.isMCPConfig && !serverDown && !tool.jsParseError) {
       const fn = tool.filename
       if (conditionalFilenames.has(fn)) {
@@ -533,7 +533,11 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
     })
   }
 
-  // Group tools: local tools (excluding MCP configs), then MCP server tools grouped by serverName
+  // Sentinel used by the main process to mark built-in Bernard tools
+  const BUILTIN_SERVER = '__builtin__'
+
+  // Group tools: built-ins first, then local tools, then MCP server tools grouped by serverName
+  const builtinTools = tools.filter((t) => t.serverName === BUILTIN_SERVER).sort((a, b) => a.name.localeCompare(b.name))
   const localTools = tools.filter((t) => !t.serverName && !t.isMCPConfig).sort((a, b) => a.name.localeCompare(b.name))
   const mcpConfigFiles = new Map<string, ToolFile>() // server name → config file
   for (const t of tools) {
@@ -541,7 +545,7 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
   }
   const mcpGroupsUnsorted = new Map<string, ToolFile[]>()
   for (const t of tools) {
-    if (t.serverName) {
+    if (t.serverName && t.serverName !== BUILTIN_SERVER) {
       const group = mcpGroupsUnsorted.get(t.serverName) ?? []
       group.push(t)
       mcpGroupsUnsorted.set(t.serverName, group)
@@ -574,7 +578,7 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
   const renderToolRow = (tool: ToolFile, indent: number): React.JSX.Element => {
     const isLocal = !tool.serverName
     const isDraggable = isLocal && !tool.isMCPConfig
-    const isDisconnected = tool.serverName ? mcpStatuses.get(tool.serverName) === false : false
+    const isDisconnected = (tool.serverName && tool.serverName !== BUILTIN_SERVER) ? mcpStatuses.get(tool.serverName) === false : false
     return (
       <div
         key={tool.filename}
@@ -649,6 +653,29 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
           <div className="skills-tab-empty">Drop a file of type <span className="context-file-icon file-type-js">JS</span>{' or '}<span className="context-file-icon file-type-json">JSON</span>{' '} here to add a local tools and local/remote MCP servers.</div>
         ) : (
           <div className="skills-tab-tree">
+            {/* Built-in Bernard tools */}
+            {builtinTools.length > 0 && (
+              <div>
+                <div
+                  className="skills-tree-file mcp-server-header"
+                  style={{ paddingLeft: 8, display: 'flex', alignItems: 'center', gap: 6, cursor: 'default' }}
+                >
+                  <svg
+                    width="10" height="10" viewBox="0 0 10 10" fill="currentColor"
+                    style={{ flexShrink: 0, transform: 'rotate(90deg)' }}
+                  >
+                    <polygon points="2,1 8,5 2,9" />
+                  </svg>
+                  <span className="skills-item-icon file-type-json" style={{ fontSize: '0.6rem', letterSpacing: '-0.5px' }}>BLT</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500, opacity: 0.85 }}>
+                    builtin
+                  </span>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{builtinTools.length}</span>
+                </div>
+                {builtinTools.map((tool) => renderToolRow(tool, 24))}
+              </div>
+            )}
+
             {/* Local tools */}
             {localTools.map((tool) => renderToolRow(tool, 12))}
 
@@ -803,9 +830,9 @@ function ToolsTabView({ selectedFilenames, conditionalFilenames, onSelectionChan
             </div>
 
             {viewMode === 'preview' && (
-              <div className="personas-markdown">
+              <div className="agents-markdown">
                 <pre
-                  className="personas-source"
+                  className="agents-source"
                   dangerouslySetInnerHTML={{ __html: highlightCode(editorContent || viewingTool.content, viewingTool.filename) }}
                 />
               </div>

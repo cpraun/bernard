@@ -1,7 +1,7 @@
 ---
 command: /greet
 description: A simple greeting command.
-persona: 
+agent: 
 ---
 
 # Greet Command

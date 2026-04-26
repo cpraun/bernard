@@ -1,0 +1,22 @@
+{
+  "name": "read",
+  "description": "Read a file from the local filesystem. Returns the file content as text. Supports reading a specific range of lines via the offset and limit parameters. Only works for text-based files (plain text, Markdown, source code, JSON, etc.).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "file_path": {
+        "type": "string",
+        "description": "The absolute path to the file to read."
+      },
+      "offset": {
+        "type": "number",
+        "description": "The line number to start reading from (0-indexed). Omit to start from the beginning."
+      },
+      "limit": {
+        "type": "number",
+        "description": "The maximum number of lines to read. Omit to read the entire file (or remaining lines from offset)."
+      }
+    },
+    "required": ["file_path"]
+  }
+}

@@ -19,11 +19,13 @@ interface ProviderConfig {
   apiKey?: string
   baseUrl?: string
   model?: string
+  embeddingModel?: string
   enabled?: boolean
   temperature?: number
   topK?: number
   topP?: number
   maxOutputTokens?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
   stop?: string[]
   projectId?: string
   region?: string
@@ -55,11 +57,11 @@ interface AppConfig {
 
 
 const PROVIDER_DEFINITIONS = [
-  { id: 'anthropic', name: 'Anthropic (cloud)', defaultModel: 'claude-sonnet-4-20250514', notYetImplemented: false },
+  { id: 'anthropic', name: 'Anthropic (cloud)', defaultModel: 'claude-opus-4-6', notYetImplemented: false },
   { id: 'gemini', name: 'Google Gemini (cloud)', defaultModel: 'gemini-2.5-flash', notYetImplemented: false },
-  { id: 'vertex', name: 'Google Vertex (cloud)', defaultModel: '', notYetImplemented: false },
+  { id: 'vertex', name: 'Google Enterprise Agent Platform (cloud)', defaultModel: '', notYetImplemented: false },
   { id: 'ollama', name: 'Ollama (local)', defaultModel: 'llama3.2', notYetImplemented: false },
-  { id: 'openai-local', name: 'OpenAI-Compatible (local)', defaultModel: '', notYetImplemented: false },
+  { id: 'openai-local', name: 'OpenAI-Compatible (local)', defaultModel: '', notYetImplemented: false }
 ]
 
 const LOCAL_PROVIDERS = new Set(['ollama', 'openai-local'])
@@ -76,15 +78,15 @@ const GEMINI_MODELS = [
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (frontier-class, lower latency)' },
   { id: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro (most capable)' },
   { id: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash (recommended)' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (fastest)' },
-  { id: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash (retiring Mar 2026)' },
-  { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash-Lite (retiring Mar 2026)' },
+  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (fastest)' }
 ]
 
 const ANTHROPIC_MODELS = [
-  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4 (most capable)' },
-  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (recommended)' },
-  { id: 'claude-haiku-3-5-20241022', label: 'Claude 3.5 Haiku (fastest)' },
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7 (most capable)' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6 (default)' },
+  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
+  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+  { id: 'claude-haiku-3-5-20241022', label: 'Claude 3.5 Haiku (fastest)' }
 ]
 
 interface TestResult {
@@ -452,22 +454,71 @@ function SettingsView({ onSettingsChange }: SettingsViewProps): React.JSX.Elemen
                   )}
 
                   {def.id === 'openai-local' && (
-                    <div className="provider-field">
-                      <label>Model</label>
-                      <select
-                        className="settings-input"
-                        value={providerConfig.model || ''}
-                        onChange={(e) => handleModelChange(def.id, e.target.value)}
-                        onMouseDown={() => fetchOpenaiLocalModels()}
-                      >
-                        {openaiLocalModels.length === 0 && (
-                          <option value="">— Click here to select a model —</option>
-                        )}
-                        {openaiLocalModels.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <>
+                      <div className="provider-field">
+                        <label>Model</label>
+                        <select
+                          className="settings-input"
+                          value={providerConfig.model || ''}
+                          onChange={(e) => handleModelChange(def.id, e.target.value)}
+                          onMouseDown={() => fetchOpenaiLocalModels()}
+                        >
+                          {openaiLocalModels.length === 0 && (
+                            <option value="">— Click here to select a model —</option>
+                          )}
+                          {openaiLocalModels.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="provider-field">
+                        <label>Temperature <span className="param-value">{(providerConfig.temperature ?? 1.0).toFixed(2)}</span></label>
+                        <input
+                          type="range"
+                          min={0} max={2} step={0.01}
+                          value={providerConfig.temperature ?? 1.0}
+                          onChange={(e) => handleGenParamChange(def.id, 'temperature', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div className="provider-field">
+                        <label>Top P <span className="param-value">{(providerConfig.topP ?? 1.0).toFixed(2)}</span></label>
+                        <input
+                          type="range"
+                          min={0} max={1} step={0.01}
+                          value={providerConfig.topP ?? 1.0}
+                          onChange={(e) => handleGenParamChange(def.id, 'topP', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div className="provider-field">
+                        <label>Max Output Tokens <span className="param-value">{providerConfig.maxOutputTokens ?? 8192}</span></label>
+                        <input
+                          type="range"
+                          min={256} max={32768} step={256}
+                          value={providerConfig.maxOutputTokens ?? 8192}
+                          onChange={(e) => handleGenParamChange(def.id, 'maxOutputTokens', parseInt(e.target.value))}
+                        />
+                      </div>
+                      <div className="provider-field">
+                        <label>Reasoning Effort</label>
+                        <select
+                          className="settings-input"
+                          value={providerConfig.reasoningEffort ?? ''}
+                          onChange={(e) => {
+                            if (!config) return
+                            const val = e.target.value as 'low' | 'medium' | 'high' | ''
+                            const updated = { ...providerConfig }
+                            if (val) updated.reasoningEffort = val
+                            else delete updated.reasoningEffort
+                            updateConfig({ ...config, providers: { ...config.providers, [def.id]: updated } })
+                          }}
+                        >
+                          <option value="">— Not specified —</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+                    </>
                   )}
 
                   {def.id !== 'openai-local' && def.id !== 'vertex' && <div className="provider-field">

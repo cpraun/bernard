@@ -3,7 +3,7 @@ command: /rewrite
 description: Rewrites any user-provided text in a specified tone (e.g. formal, casual, persuasive). Use this skill whenever the user wants to rephrase, rewrite, or adapt a piece of text to a different style or audience. Trigger on phrases like "rewrite this as", "make this sound more formal/casual", "change the tone of", or whenever the user pastes text and names a target tone.
 argument-hint: none
 context-hint: none
-persona: tone-rewriter 
+agent: tone-rewriter 
 ---
 
 Rewrite a given input text to match a target tone specified by the user.

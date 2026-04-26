@@ -13,10 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { readdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import type { NAIProvider, ModelInfo } from './NAIProvider'
 import type { ChatMessage, FileContext, NAIResponse, ToolDefinition } from '../../shared/types'
 import type { InteractionLogger } from '../services/InteractionLogger'
-import { executeToolCall, isToolError } from '../services/ToolExecutionService'
+import { executeToolCall, isToolError, BUILTIN_SERVER } from '../services/ToolExecutionService'
+import type { ToolExecutionContext } from '../services/ToolExecutionService'
+import { getBuiltinToolsDir } from '../services/ConfigService'
 
 export type RAGQueryFn = (text: string) => Promise<{ title: string; text: string }[]>
 
@@ -163,7 +167,10 @@ export class OllamaProvider implements NAIProvider {
       let functionResult: Record<string, unknown>
       try {
         const toolDef = toolDefinitions?.find(t => t.name === fcName)
-        functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer) as Record<string, unknown>
+        const execContext: ToolExecutionContext = {
+          runSubAgent: (prompt, subSignal, model) => this.runSubAgent(prompt, subSignal ?? signal, model)
+        }
+        functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer, execContext) as Record<string, unknown>
         const errCheck = isToolError(functionResult)
         if (errCheck.isError) {
           console.error(`[OllamaProvider] Tool "${fcName}" returned error:`, errCheck.message)
@@ -187,6 +194,7 @@ export class OllamaProvider implements NAIProvider {
           }
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') throw err
         console.error(`[OllamaProvider] Tool "${fcName}" execution failed:`, err)
         functionResult = { error: String(err) }
         logger?.log('TOOL_ERROR', `${fcName} — ${String(err)}`)
@@ -252,6 +260,75 @@ export class OllamaProvider implements NAIProvider {
             }
           : undefined,
       sources
+    }
+  }
+
+  /**
+   * Run a sub-agent agentic loop using the same Ollama endpoint.
+   * Loads all built-in tools from disk and loops until the model stops calling tools.
+   * Recursion is capped at MAX_DEPTH to prevent runaway nesting.
+   */
+  private async runSubAgent(
+    prompt: string,
+    signal?: AbortSignal,
+    modelOverride?: string,
+    depth = 0
+  ): Promise<string> {
+    const MAX_DEPTH = 3
+    if (depth >= MAX_DEPTH) return `[Sub-agent depth limit (${MAX_DEPTH}) reached]`
+
+    const model = modelOverride ?? this.model
+
+    // Load all built-in tool schemas in Ollama format
+    const builtinDir = getBuiltinToolsDir()
+    const tools = readdirSync(builtinDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const def = JSON.parse(readFileSync(join(builtinDir, f), 'utf-8'))
+        return {
+          type: 'function' as const,
+          function: {
+            name: def.name as string,
+            ...(def.description ? { description: def.description as string } : {}),
+            ...(def.parameters ? { parameters: this.convertParameters(def.parameters) } : {})
+          }
+        }
+      })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let messages: any[] = [{ role: 'user', content: prompt }]
+
+    // Sub-agent agentic loop — continues until the model stops calling tools
+    while (true) {
+      const res = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, tools, stream: false }),
+        signal
+      })
+      if (!res.ok) throw new Error(`Ollama error ${res.status}: ${await res.text()}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = (await res.json()) as any
+
+      const toolCalls = json.message?.tool_calls
+      if (!toolCalls || toolCalls.length === 0) {
+        return json.message?.content ?? ''
+      }
+
+      const tc = toolCalls[0]
+      const fcName: string = tc.function.name
+      const fcArgs: Record<string, unknown> = tc.function.arguments ?? {}
+
+      const subContext: ToolExecutionContext = {
+        runSubAgent: (p, s, m) => this.runSubAgent(p, s, m, depth + 1)
+      }
+      const toolResult = await executeToolCall(fcName, fcArgs, BUILTIN_SERVER, subContext)
+
+      messages = [
+        ...messages,
+        json.message,
+        { role: 'tool', content: JSON.stringify(toolResult) }
+      ]
     }
   }
 

@@ -20,7 +20,7 @@ interface Command {
   name: string
   content: string
   description: string
-  personas: string[]
+  agents: string[]
   size: number
 }
 
@@ -28,14 +28,14 @@ interface CommandsPanelProps {
   isOpen: boolean
   onToggle: () => void
   onAttachCommand: (command: Command) => void
-  activePersonaName?: string | null
+  activeAgentName?: string | null
 }
 
 function SkillsPanel({
   isOpen,
   onToggle,
   onAttachCommand,
-  activePersonaName
+  activeAgentName
 }: CommandsPanelProps): React.JSX.Element {
   const [commands, setCommands] = useState<Command[]>([])
 
@@ -49,11 +49,11 @@ function SkillsPanel({
     }
   }, [isOpen])
 
-  // Filter commands by active persona: only show commands whose persona list
-  // includes the current persona name. Commands with no persona restriction
-  // are always shown. If no persona is active, show all commands.
-  const filteredCommands = activePersonaName
-    ? commands.filter((cmd) => cmd.personas.length === 0 || cmd.personas.includes(activePersonaName))
+  // Filter commands by active agent: only show commands whose agent list
+  // includes the current agent name. Commands with no agent restriction
+  // are always shown. If no agent is active, show all commands.
+  const filteredCommands = activeAgentName
+    ? commands.filter((cmd) => cmd.agents.length === 0 || cmd.agents.includes(activeAgentName))
     : commands
 
   return (
@@ -69,7 +69,7 @@ function SkillsPanel({
         <aside className="skills-panel">
           <div className="skills-header">Commands</div>
           {filteredCommands.length === 0 ? (
-            <div className="skills-empty">{commands.length === 0 ? 'No commands — add one in the Commands Tab.' : 'No commands for current persona'}</div>
+            <div className="skills-empty">{commands.length === 0 ? 'No commands — add one in the Commands Tab.' : 'No commands for current agent'}</div>
           ) : (
             <ul className="skills-list">
               {filteredCommands.map((cmd) => (

@@ -26,7 +26,7 @@ function SplashScreen({ fading, statusMessage }: SplashScreenProps): React.JSX.E
           <span className="splash-logo-icon">B</span>
           <h1 className="splash-title">Bernard</h1>
         </div>
-        <p className="splash-credit">Version 1.0.0 &middot; March 2026</p>
+        <p className="splash-credit">Version 1.0.1 &middot; April 2026</p>
       </div>
       <div className="splash-statusbar">
         <div className="splash-spinner" />

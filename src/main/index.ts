@@ -24,7 +24,7 @@ import { registerFileHandlers } from './ipc/fileHandlers'
 import { registerSettingsHandlers } from './ipc/settingsHandlers'
 import { registerSkillsHandlers, stopSkillsWatcher } from './ipc/skillsHandlers'
 import { registerCommandsHandlers, stopCommandsWatcher } from './ipc/commandsHandlers'
-import { registerPersonasHandlers, stopPersonasWatcher } from './ipc/personasHandlers'
+import { registerAgentsHandlers, stopAgentsWatcher } from './ipc/agentsHandlers'
 import { registerToolsHandlers, stopToolsWatcher } from './ipc/toolsHandlers'
 import { registerMCPHandlers, stopMCPWatcher } from './ipc/mcpHandlers'
 import { registerUIStateHandlers } from './ipc/uiStateHandlers'
@@ -134,7 +134,7 @@ app.whenReady().then(() => {
   registerSettingsHandlers()
   registerSkillsHandlers()
   registerCommandsHandlers()
-  registerPersonasHandlers()
+  registerAgentsHandlers()
   registerToolsHandlers()
   registerMCPHandlers()
 
@@ -246,7 +246,7 @@ app.on('will-quit', () => {
   stopWatcher()
   stopSkillsWatcher()
   stopCommandsWatcher()
-  stopPersonasWatcher()
+  stopAgentsWatcher()
   stopToolsWatcher()
   stopMCPWatcher()
   const runningServers = MCPHostService.getServerStatuses()

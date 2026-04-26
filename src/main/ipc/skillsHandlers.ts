@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { readdirSync, unlinkSync, writeFileSync, copyFileSync, mkdirSync, statSync, existsSync, renameSync } from 'fs'
+import { readdirSync, readFileSync, unlinkSync, writeFileSync, copyFileSync, mkdirSync, statSync, existsSync, renameSync } from 'fs'
 import type { Dirent } from 'fs'
 import { join, extname, relative, resolve, sep, basename } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { parseFile } from '../services/FileParserService'
-import { getSkillsDir } from '../services/ConfigService'
+import { getSkillsDir, getConfigDir } from '../services/ConfigService'
 import * as FileSearchRouter from '../services/FileSearchRouter'
 
 interface SkillFile { kind: 'file'; name: string; path: string; content: string; size: number }
@@ -124,7 +124,10 @@ export function registerSkillsHandlers(): void {
     while (existsSync(join(skillsDir, filename))) {
       filename = `new-skill-${counter++}.md`
     }
-    const template = `---\ndescription: \n---\n\nDescribe the skill content here.\n`
+    const templatePath = join(getConfigDir(), 'new-skill.md')
+    const template = existsSync(templatePath)
+      ? readFileSync(templatePath, 'utf-8')
+      : `---\ndescription: \n---\n\nDescribe the skill content here.\n`
     writeFileSync(join(skillsDir, filename), template, 'utf-8')
     return filename
   })

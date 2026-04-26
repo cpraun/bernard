@@ -1,0 +1,22 @@
+{
+  "name": "task",
+  "description": "Launch a sub-agent to handle a complex, multi-step task. The sub-agent runs autonomously with access to built-in tools (read, task) and returns its result as text. Use this to delegate research, file analysis, or any multi-step work.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "description": {
+        "type": "string",
+        "description": "Short description of what the sub-agent will do (used for logging)."
+      },
+      "prompt": {
+        "type": "string",
+        "description": "Detailed instructions for the sub-agent. Be specific about what to investigate and what to return."
+      },
+      "model": {
+        "type": "string",
+        "description": "Optional model override (e.g. 'claude-haiku-4-5-20251001'). Defaults to the model of the calling provider."
+      }
+    },
+    "required": ["description", "prompt"]
+  }
+}

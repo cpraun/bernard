@@ -17,15 +17,41 @@ import { join } from 'path'
 import { readFileSync, existsSync } from 'fs'
 import { getToolsDir } from './ConfigService'
 import * as MCPHostService from './MCPHostService'
+import { executeBuiltinTool } from './BuiltinToolsService'
+
+/** Sentinel value stored in ToolDefinition._mcpServer for built-in Bernard tools. */
+export const BUILTIN_SERVER = '__builtin__'
 
 /**
- * Centralized tool execution — routes to MCP server or local JS implementation.
+ * Execution context passed from the calling provider into built-in tool handlers.
+ * Allows built-in tools (e.g. task) to call back into the provider without
+ * being coupled to a specific provider implementation.
+ */
+export type ToolExecutionContext = {
+  /**
+   * Run a sub-agent with the given prompt using the calling provider.
+   * @param prompt  Task description for the sub-agent.
+   * @param signal  Optional abort signal propagated from the parent call.
+   * @param model   Optional model override; falls back to the provider's current model.
+   */
+  runSubAgent?: (prompt: string, signal?: AbortSignal, model?: string) => Promise<string>
+}
+
+/**
+ * Centralized tool execution — routes to built-in, MCP server, or local JS implementation.
  */
 export async function executeToolCall(
   name: string,
   args: Record<string, unknown>,
-  mcpServer?: string
+  mcpServer?: string,
+  context?: ToolExecutionContext
 ): Promise<unknown> {
+  // Route 0: Built-in Bernard tool
+  if (mcpServer === BUILTIN_SERVER) {
+    console.log(`[ToolExecution] Routing "${name}" to built-in implementation`)
+    return executeBuiltinTool(name, args, context)
+  }
+
   // Route 1: MCP tool — delegate to the MCP server
   if (mcpServer) {
     console.log(`[ToolExecution] Routing "${name}" to MCP server "${mcpServer}"`)

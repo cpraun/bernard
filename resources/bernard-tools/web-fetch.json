@@ -1,0 +1,18 @@
+{
+  "name": "web_fetch",
+  "description": "Fetch content from a URL and return it as text. HTML pages are converted to readable plain text. Use this to retrieve web pages, documentation, API responses, or any HTTP/HTTPS resource.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "The URL to fetch. Must use the http or https scheme."
+      },
+      "max_length": {
+        "type": "number",
+        "description": "Maximum number of characters to return. Defaults to 20000."
+      }
+    },
+    "required": ["url"]
+  }
+}

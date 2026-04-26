@@ -27,6 +27,7 @@ export interface ProviderConfig {
   topK?: number
   topP?: number
   maxOutputTokens?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
   stop?: string[]
   projectId?: string
   region?: string
@@ -73,13 +74,12 @@ export function getConfigDir(): string {
   const dir = join(app.getPath('home'), '.bernard')
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
-    // Copy demo profile from app resources on first startup
-    const demoSrc = app.isPackaged
-      ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'demo-profile')
-      : join(app.getAppPath(), 'resources', 'demo-profile')
-    const demoDest = join(dir, 'demo-profile')
-    if (existsSync(demoSrc)) {
-      cpSync(demoSrc, demoDest, { recursive: true })
+    // Copy base-directory contents into ~/.bernard/ on first startup
+    const baseSrc = app.isPackaged
+      ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'base-directory')
+      : join(app.getAppPath(), 'resources', 'base-directory')
+    if (existsSync(baseSrc)) {
+      cpSync(baseSrc, dir, { recursive: true })
     }
   }
   return dir
@@ -154,8 +154,8 @@ export function getCommandsDir(): string {
   return dir
 }
 
-export function getPersonasDir(): string {
-  const dir = join(getProfileDir(), 'personas')
+export function getAgentsDir(): string {
+  const dir = join(getProfileDir(), 'agents')
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }
@@ -168,5 +168,11 @@ export function getToolsDir(): string {
     mkdirSync(dir, { recursive: true })
   }
   return dir
+}
+
+export function getBuiltinToolsDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'bernard-tools')
+    : join(app.getAppPath(), 'resources', 'bernard-tools')
 }
 

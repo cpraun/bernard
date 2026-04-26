@@ -122,6 +122,7 @@ function MessageBubble({ message, onViewLog, hasLog, activeProjectId }: MessageB
   const isHtml = !isUser && (htmlTagPattern.test(rawContent) || (fencedMatch !== null && htmlTagPattern.test(fencedMatch[1].trimStart())))
   const [copiedMd, setCopiedMd] = useState(false)
   const [copiedText, setCopiedText] = useState(false)
+  const [reasoningExpanded, setReasoningExpanded] = useState(false)
 
   const handleCopyMarkdown = (): void => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -197,9 +198,25 @@ function MessageBubble({ message, onViewLog, hasLog, activeProjectId }: MessageB
             <div className="bubble-pending-indicator" />
           </div>
         ) : (
-          <div className="message-content">
-            {isUser ? message.content : <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{message.content}</Markdown>}
-          </div>
+          <>
+            {!isUser && message.reasoning && (
+              <div className="message-reasoning">
+                <button
+                  className="message-reasoning-header"
+                  onClick={() => setReasoningExpanded((v) => !v)}
+                >
+                  <span className={`message-reasoning-chevron${reasoningExpanded ? ' open' : ''}`}>›</span>
+                  Thinking…
+                </button>
+                {reasoningExpanded && (
+                  <pre className="message-reasoning-body">{message.reasoning}</pre>
+                )}
+              </div>
+            )}
+            <div className="message-content">
+              {isUser ? message.content : <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{message.content}</Markdown>}
+            </div>
+          </>
         )}
         {isUser && message.contextFiles && message.contextFiles.length > 0 && (
           <div className="message-sources">

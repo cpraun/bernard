@@ -41,7 +41,7 @@ export interface StoredConversation {
   title: string
   messages: StoredMessage[]
   selectedContextFiles?: string[]
-  personaFilename?: string
+  agentFilename?: string
   providerId?: string
   vectorDbBackend?: string
   createdAt: number

@@ -17,12 +17,14 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import { createProvider } from '../providers/ProviderFactory'
-import { loadConfig, getToolsDir } from '../services/ConfigService'
+import { loadConfig, getToolsDir, getBuiltinToolsDir, getConfigDir } from '../services/ConfigService'
+import { BUILTIN_SERVER } from '../services/ToolExecutionService'
 import { getProjectDir } from '../services/ProjectService'
 import { InteractionLogger } from '../services/InteractionLogger'
 import type { NAIRequest, NAIResponse, ToolDefinition } from '../../shared/types'
 
 let currentAbortController: AbortController | null = null
+let currentImproveAbortController: AbortController | null = null
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -143,15 +145,25 @@ function writeInteractionLog(projectId: string | undefined, messageId: string | 
 
 function loadToolDefinitions(filenames: string[]): ToolDefinition[] {
   const toolsDir = getToolsDir()
+  const builtinDir = getBuiltinToolsDir()
   const defs: ToolDefinition[] = []
   for (const filename of filenames) {
     try {
-      const filePath = join(toolsDir, filename)
+      // Built-in tools live in the app resources directory, not the user's tools dir
+      const isBuiltin = filename.startsWith(`${BUILTIN_SERVER}/`)
+      const filePath = isBuiltin
+        ? join(builtinDir, filename.slice(BUILTIN_SERVER.length + 1))
+        : join(toolsDir, filename)
       if (!existsSync(filePath)) continue
       const content = readFileSync(filePath, 'utf-8')
       const parsed = JSON.parse(content)
       if (parsed.name) {
-        defs.push({ name: parsed.name, description: parsed.description, parameters: parsed.parameters ?? parsed.inputSchema, _mcpServer: parsed._mcpServer })
+        defs.push({
+          name: parsed.name,
+          description: parsed.description,
+          parameters: parsed.parameters ?? parsed.inputSchema,
+          _mcpServer: isBuiltin ? BUILTIN_SERVER : parsed._mcpServer
+        })
       }
     } catch (err) {
       console.error(`[providerHandlers] Failed to load tool ${filename}:`, err)
@@ -204,6 +216,36 @@ export function registerProviderHandlers(): void {
 
   ipcMain.on('nai:abort', () => {
     currentAbortController?.abort()
+  })
+
+  ipcMain.handle('nai:improveText', async (_event, text: string, promptFile: string): Promise<string> => {
+    const cfg = loadConfig()
+    // Create provider with temperature=0 and RAG/Gemini file search disabled.
+    // No tools, no agent, no commands — only the system prompt file and the user text.
+    const provider = createProvider(cfg.defaultProvider, { temperature: 0, ragDisabled: true })
+    const promptPath = join(getConfigDir(), promptFile)
+    let systemPrompt: string
+    if (existsSync(promptPath)) {
+      systemPrompt = readFileSync(promptPath, 'utf-8')
+    } else {
+      systemPrompt = 'You are a writing assistant. Improve the following text for clarity, conciseness, and correctness. Return only the improved text, with no explanation or preamble.'
+    }
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: text }
+    ]
+    currentImproveAbortController = new AbortController()
+    try {
+      // Pass no tools, no context files, no logger — clean isolated call
+      const response = await provider.sendMessage(messages, undefined, undefined, currentImproveAbortController.signal)
+      return response.content
+    } finally {
+      currentImproveAbortController = null
+    }
+  })
+
+  ipcMain.on('nai:abortImprove', () => {
+    currentImproveAbortController?.abort()
   })
 
   ipcMain.handle('nai:getDefaultProvider', async (): Promise<string> => {

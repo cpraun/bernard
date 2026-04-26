@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 import { GoogleAuth } from 'google-auth-library'
+import { readdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import type { ModelInfo, NAIProvider } from './NAIProvider'
 import type { ChatMessage, FileContext, NAIResponse, ToolDefinition } from '../../shared/types'
 import type { InteractionLogger } from '../services/InteractionLogger'
-import { executeToolCall, isToolError } from '../services/ToolExecutionService'
+import { executeToolCall, isToolError, BUILTIN_SERVER } from '../services/ToolExecutionService'
+import type { ToolExecutionContext } from '../services/ToolExecutionService'
+import { getBuiltinToolsDir } from '../services/ConfigService'
 
 export type RAGQueryFn = (text: string) => Promise<{ title: string; text: string }[]>
 
@@ -210,6 +214,69 @@ export class VertexProvider implements NAIProvider {
     return raw.trim()
   }
 
+  /**
+   * Run a sub-agent agentic loop using the same Vertex endpoint.
+   * Reuses the prompt-based tool-call mechanism already established in sendMessage.
+   * Recursion is capped at MAX_DEPTH to prevent runaway nesting.
+   */
+  private async runSubAgent(
+    prompt: string,
+    signal?: AbortSignal,
+    _modelOverride?: string,
+    depth = 0
+  ): Promise<string> {
+    const MAX_DEPTH = 3
+    if (depth >= MAX_DEPTH) return `[Sub-agent depth limit (${MAX_DEPTH}) reached]`
+
+    // Load all built-in tool definitions for prompt injection
+    const builtinDir = getBuiltinToolsDir()
+    const toolDefs: ToolDefinition[] = readdirSync(builtinDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => JSON.parse(readFileSync(join(builtinDir, f), 'utf-8')) as ToolDefinition)
+
+    const messages: { role: string; content: string }[] = [
+      { role: 'user', content: prompt }
+    ]
+
+    const MAX_TOOL_ROUNDS = 10
+    let token = await this.getAccessToken()
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const promptStr = this.messagesToPrompt(messages, toolDefs)
+      const body = this.buildBody(promptStr)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = await this.rawRequest(body, token, signal)
+      let responseText = this.extractText(json)
+
+      const toolCalls = this.parseToolCalls(responseText)
+      if (!toolCalls || toolCalls.length === 0) {
+        const markerIdx = responseText.indexOf(TOOL_CALL_MARKER)
+        if (markerIdx !== -1) responseText = responseText.substring(0, markerIdx).trim()
+        return responseText
+      }
+
+      messages.push({ role: 'assistant', content: responseText })
+
+      const subContext: ToolExecutionContext = {
+        runSubAgent: (p, s, m) => this.runSubAgent(p, s, m, depth + 1)
+      }
+
+      for (const tc of toolCalls) {
+        const fcName = tc.name
+        const fcArgs = tc.arguments ?? {}
+        const toolResult = await executeToolCall(fcName, fcArgs, BUILTIN_SERVER, subContext)
+        messages.push({
+          role: 'tool_result',
+          content: `Result of ${fcName}: ${JSON.stringify(toolResult)}`
+        })
+      }
+
+      token = await this.getAccessToken()
+    }
+
+    return ''
+  }
+
   async testConnection(): Promise<ModelInfo> {
     console.log('[VertexProvider] testConnection: fetching endpoint info via management API')
     console.log('[VertexProvider] Management URL:', this.managementUrl)
@@ -354,6 +421,10 @@ export class VertexProvider implements NAIProvider {
     const toolsUsed: { name: string; args?: Record<string, unknown>; error?: boolean }[] = []
     const MAX_TOOL_ROUNDS = 10
 
+    const execContext: ToolExecutionContext = {
+      runSubAgent: (prompt, subSignal, model) => this.runSubAgent(prompt, subSignal ?? signal, model)
+    }
+
     // Loop to handle prompt-based tool calls
     if (hasTools) {
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -375,7 +446,8 @@ export class VertexProvider implements NAIProvider {
             functionResult = (await executeToolCall(
               fcName,
               fcArgs,
-              toolDef?._mcpServer
+              toolDef?._mcpServer,
+              execContext
             )) as Record<string, unknown>
             const errCheck = isToolError(functionResult)
             if (errCheck.isError) {
@@ -403,6 +475,7 @@ export class VertexProvider implements NAIProvider {
               }
             }
           } catch (err) {
+            if (err instanceof DOMException && err.name === 'AbortError') throw err
             console.error(`[VertexProvider] Tool "${fcName}" execution failed:`, err)
             functionResult = { error: String(err) }
             logger?.log('TOOL_ERROR', `${fcName} — ${String(err)}`)

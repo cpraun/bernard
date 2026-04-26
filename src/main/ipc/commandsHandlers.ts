@@ -17,21 +17,21 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, unlinkSync, renam
 import { join, extname, basename, resolve, sep } from 'path'
 import { ipcMain, BrowserWindow } from 'electron'
 import chokidar, { type FSWatcher } from 'chokidar'
-import { getCommandsDir } from '../services/ConfigService'
+import { getCommandsDir, getConfigDir } from '../services/ConfigService'
 
-function parseFrontmatter(content: string): { description: string; personas: string[] } {
+function parseFrontmatter(content: string): { description: string; agents: string[] } {
   const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
   let description = ''
-  let personas: string[] = []
+  let agents: string[] = []
 
   if (frontmatterMatch) {
     const block = frontmatterMatch[1]
     const descMatch = block.match(/^description:\s*(.+)$/m)
     if (descMatch) description = descMatch[1].trim()
 
-    const personaMatch = block.match(/^persona:\s*(.+)$/m)
-    if (personaMatch) {
-      personas = personaMatch[1].split(',').map((s) => s.trim()).filter(Boolean)
+    const agentMatch = block.match(/^agent:\s*(.+)$/m)
+    if (agentMatch) {
+      agents = agentMatch[1].split(',').map((s) => s.trim()).filter(Boolean)
     }
   }
 
@@ -53,7 +53,7 @@ function parseFrontmatter(content: string): { description: string; personas: str
     }
   }
 
-  return { description, personas }
+  return { description, agents }
 }
 
 // ── Watcher ───────────────────────────────────────────────────────────────────
@@ -118,7 +118,10 @@ export function registerCommandsHandlers(): void {
     while (existsSync(join(commandsDir, filename))) {
       filename = `new-command-${counter++}.md`
     }
-    const template = `---\ndescription: \n---\n\nType your command template here.\n`
+    const templatePath = join(getConfigDir(), 'new-command.md')
+    const template = existsSync(templatePath)
+      ? readFileSync(templatePath, 'utf-8')
+      : `---\ndescription: \n---\n\nType your command template here.\n`
     writeFileSync(join(commandsDir, filename), template, 'utf-8')
     return filename
   })
@@ -149,13 +152,13 @@ export function registerCommandsHandlers(): void {
     return fileNames.map((filename) => {
       try {
         const content = readFileSync(join(commandsDir, filename), 'utf-8')
-        const { description, personas } = parseFrontmatter(content)
+        const { description, agents } = parseFrontmatter(content)
         return {
           filename,
           name: basename(filename, '.md'),
           content,
           description,
-          personas,
+          agents,
           size: content.length
         }
       } catch {

@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 import { GoogleGenAI } from '@google/genai'
+import { readdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import type { NAIProvider, ModelInfo } from './NAIProvider'
 import type { ChatMessage, FileContext, NAIResponse, ToolDefinition } from '../../shared/types'
 import type { InteractionLogger } from '../services/InteractionLogger'
 import type { RAGQueryFn } from './OllamaProvider'
-import { executeToolCall, isToolError } from '../services/ToolExecutionService'
+import { executeToolCall, isToolError, BUILTIN_SERVER } from '../services/ToolExecutionService'
+import type { ToolExecutionContext } from '../services/ToolExecutionService'
+import { getBuiltinToolsDir } from '../services/ConfigService'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // JSON Schema properties not supported by Gemini's function declaration API
@@ -235,7 +239,10 @@ export class GeminiProvider implements NAIProvider {
       let functionResult: Record<string, unknown> | undefined
       try {
         const toolDef = toolDefinitions?.find(t => t.name === fcName)
-        functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer) as Record<string, unknown>
+        const execContext: ToolExecutionContext = {
+          runSubAgent: (prompt, subSignal, model) => this.runSubAgent(prompt, subSignal ?? signal, model)
+        }
+        functionResult = await executeToolCall(fcName, fcArgs, toolDef?._mcpServer, execContext) as Record<string, unknown>
         const errCheck = isToolError(functionResult)
         if (errCheck.isError) {
           console.error(`[GeminiProvider] Tool "${fcName}" returned error:`, errCheck.message)
@@ -259,6 +266,7 @@ export class GeminiProvider implements NAIProvider {
           }
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') throw err
         console.error(`[GeminiProvider] Tool "${fcName}" execution failed:`, err)
         functionResult = { error: String(err) } as Record<string, unknown>
         logger?.log('TOOL_ERROR', `${fcName} — ${String(err)}`)
@@ -344,6 +352,85 @@ export class GeminiProvider implements NAIProvider {
           : undefined,
       sources: allSources.length > 0 ? allSources : undefined,
       toolsUsed
+    }
+  }
+
+  /**
+   * Run a sub-agent agentic loop using the same Gemini client.
+   * Loads all built-in tools from disk and loops until the model stops calling tools.
+   * Recursion is capped at MAX_DEPTH to prevent runaway nesting.
+   */
+  private async runSubAgent(
+    prompt: string,
+    signal?: AbortSignal,
+    modelOverride?: string,
+    depth = 0
+  ): Promise<string> {
+    const MAX_DEPTH = 3
+    if (depth >= MAX_DEPTH) return `[Sub-agent depth limit (${MAX_DEPTH}) reached]`
+
+    const model = modelOverride ?? this.model
+
+    // Load all built-in tool schemas as Gemini function declarations
+    const builtinDir = getBuiltinToolsDir()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const functionDeclarations: any[] = readdirSync(builtinDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const def = JSON.parse(readFileSync(join(builtinDir, f), 'utf-8'))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const decl: any = { name: def.name }
+        if (def.description) decl.description = def.description
+        if (def.parameters) decl.parameters = sanitizeParamsForGemini(def.parameters)
+        return decl
+      })
+    const tools = [{ functionDeclarations }]
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }]
+
+    // Sub-agent agentic loop — continues until the model stops calling tools
+    while (true) {
+      const createPromise = this.ai.models.generateContent({ model, contents, config: { tools } })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response: any = signal
+        ? await Promise.race([
+            createPromise,
+            new Promise<never>((_, reject) => {
+              if (signal.aborted) reject(new DOMException('Aborted', 'AbortError'))
+              else signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+            })
+          ])
+        : await createPromise
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parts: any[] = response.candidates?.[0]?.content?.parts ?? []
+      const functionCallPart = parts.find((p: { functionCall?: unknown }) => p.functionCall)
+
+      if (!functionCallPart?.functionCall) {
+        return parts
+          .filter((p: { text?: string }) => typeof p.text === 'string')
+          .map((p: { text: string }) => p.text)
+          .join('')
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fc = functionCallPart.functionCall as any
+      const fcName: string = fc.name ?? ''
+      const fcArgs: Record<string, unknown> = fc.args ?? {}
+
+      const subContext: ToolExecutionContext = {
+        runSubAgent: (p, s, m) => this.runSubAgent(p, s, m, depth + 1)
+      }
+      const toolResult = await executeToolCall(fcName, fcArgs, BUILTIN_SERVER, subContext)
+
+      const modelParts = response.candidates?.[0]?.content?.parts ?? [{ functionCall: { name: fcName, args: fcArgs } }]
+      contents = [
+        ...contents,
+        { role: 'model', parts: modelParts },
+        { role: 'user', parts: [{ functionResponse: { name: fcName, response: toolResult } }] }
+      ]
     }
   }
 

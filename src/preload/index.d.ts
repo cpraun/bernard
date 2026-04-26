@@ -35,6 +35,7 @@ interface NAIResponse {
   }
   sources?: { title: string; text?: string }[]
   toolsUsed?: { name: string; args?: Record<string, unknown>; error?: boolean }[]
+  reasoning?: string
 }
 
 interface StoredMessage {
@@ -51,7 +52,7 @@ interface StoredConversation {
   title: string
   messages: StoredMessage[]
   selectedContextFiles?: string[]
-  personaFilename?: string
+  agentFilename?: string
   providerId?: string
   vectorDbBackend?: string
   createdAt: number
@@ -76,6 +77,7 @@ interface NaiChatAPI {
   sendMessage: (request: NAIRequest) => Promise<NAIResponse>
   abortMessage: () => void
   abortInit: () => void
+  abortImprove: () => void
   getDefaultProvider: () => Promise<string>
 
   // Project APIs
@@ -147,7 +149,7 @@ interface NaiChatAPI {
       name: string
       content: string
       description: string
-      personas: string[]
+      agents: string[]
       size: number
     }[]
   >
@@ -201,12 +203,12 @@ interface NaiChatAPI {
   signalRendererReady: () => void
   readAppLog: () => Promise<string>
   clearAppLog: () => Promise<boolean>
-  listPersonas: () => Promise<{ filename: string; name: string; content: string; size: number }[]>
-  createPersona: () => Promise<string>
-  savePersona: (filename: string, content: string) => Promise<void>
-  deletePersona: (filename: string) => Promise<void>
-  renamePersona: (oldFilename: string, newFilename: string) => Promise<void>
-  onPersonasChanged: (callback: () => void) => () => void
+  listAgents: () => Promise<{ filename: string; name: string; content: string; size: number }[]>
+  createAgent: () => Promise<string>
+  saveAgent: (filename: string, content: string) => Promise<void>
+  deleteAgent: (filename: string) => Promise<void>
+  renameAgent: (oldFilename: string, newFilename: string) => Promise<void>
+  onAgentsChanged: (callback: () => void) => () => void
 
   listTools: () => Promise<{ filename: string; name: string; content: string; size: number; serverName?: string; readOnly?: boolean; isMCPConfig?: boolean }[]>
   saveTool: (filename: string, content: string) => Promise<void>
@@ -224,6 +226,7 @@ interface NaiChatAPI {
   refreshAllMCP: () => Promise<void>
   readMCPLog: (name: string) => Promise<string>
   clearMCPLog: (name: string) => Promise<void>
+  improveText: (text: string, promptFile: string) => Promise<string>
   onMCPChanged: (callback: () => void) => () => void
 
   // Export APIs
@@ -278,7 +281,7 @@ interface VectorDbConfig {
 
 interface PanelSizes {
   chatSidebar?: number
-  personasSidebar?: number
+  agentsSidebar?: number
   commandsSidebar?: number
   skillsSidebar?: number
   toolsSidebar?: number
