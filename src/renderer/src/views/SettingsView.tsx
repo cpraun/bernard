@@ -57,11 +57,11 @@ interface AppConfig {
 
 
 const PROVIDER_DEFINITIONS = [
-  { id: 'anthropic', name: 'Anthropic (cloud)', defaultModel: 'claude-sonnet-4-20250514', notYetImplemented: false },
+  { id: 'anthropic', name: 'Anthropic (cloud)', defaultModel: 'claude-opus-4-6', notYetImplemented: false },
   { id: 'gemini', name: 'Google Gemini (cloud)', defaultModel: 'gemini-2.5-flash', notYetImplemented: false },
   { id: 'vertex', name: 'Google Enterprise Agent Platform (cloud)', defaultModel: '', notYetImplemented: false },
   { id: 'ollama', name: 'Ollama (local)', defaultModel: 'llama3.2', notYetImplemented: false },
-  { id: 'openai-local', name: 'OpenAI-Compatible (local)', defaultModel: '', notYetImplemented: false },
+  { id: 'openai-local', name: 'OpenAI-Compatible (local)', defaultModel: '', notYetImplemented: false }
 ]
 
 const LOCAL_PROVIDERS = new Set(['ollama', 'openai-local'])
@@ -78,15 +78,15 @@ const GEMINI_MODELS = [
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (frontier-class, lower latency)' },
   { id: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro (most capable)' },
   { id: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash (recommended)' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (fastest)' },
-  { id: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash (retiring Mar 2026)' },
-  { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash-Lite (retiring Mar 2026)' },
+  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (fastest)' }
 ]
 
 const ANTHROPIC_MODELS = [
-  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4 (most capable)' },
-  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (recommended)' },
-  { id: 'claude-haiku-3-5-20241022', label: 'Claude 3.5 Haiku (fastest)' },
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7 (most capable)' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6 (default)' },
+  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
+  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+  { id: 'claude-haiku-3-5-20241022', label: 'Claude 3.5 Haiku (fastest)' }
 ]
 
 interface TestResult {
