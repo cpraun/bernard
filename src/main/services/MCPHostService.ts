@@ -187,7 +187,7 @@ export async function connectServer(name: string, config: MCPServerConfig): Prom
   appendLog(name, 'Starting server...')
   const transport = createTransport(name, config)
 
-  const client = new Client({ name: 'bernard', version: '1.0.0' })
+  const client = new Client({ name: 'bernard', version: '1.0.1' })
 
   // Handle transport errors/close
   transport.onerror = (error) => {

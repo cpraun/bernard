@@ -1,6 +1,6 @@
 {
   "name": "Bernard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A desktop AI chat application with multi-provider support, RAG, MCP tools, and personas",
   "main": "./out/main/index.js",
   "author": "Christoph von Praun",
