@@ -1192,7 +1192,7 @@ function App(): React.JSX.Element {
               {[
                 { id: 'anthropic', label: 'Anthropic' },
                 { id: 'gemini', label: 'Gemini' },
-                { id: 'vertex', label: 'Vertex' },
+                { id: 'vertex', label: 'Google Enterprise Agent' },
                 { id: 'ollama', label: 'Ollama' },
                 { id: 'openai-local', label: 'OpenAI-Local' }
               ].filter((p) => availableProviders[p.id] || p.id === providerInfo.id).map((p) => (
