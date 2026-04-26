@@ -9,6 +9,7 @@ out
 *.tsbuildinfo
 Thumbs.db
 .vscode/
+.claude/
 eng.traineddata
 docs/architecture.svg
 docs/architecture.pptx
