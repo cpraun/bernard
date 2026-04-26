@@ -59,7 +59,7 @@ interface AppConfig {
 const PROVIDER_DEFINITIONS = [
   { id: 'anthropic', name: 'Anthropic (cloud)', defaultModel: 'claude-sonnet-4-20250514', notYetImplemented: false },
   { id: 'gemini', name: 'Google Gemini (cloud)', defaultModel: 'gemini-2.5-flash', notYetImplemented: false },
-  { id: 'vertex', name: 'Google Vertex (cloud)', defaultModel: '', notYetImplemented: false },
+  { id: 'vertex', name: 'Google Enterprise Agent Platform (cloud)', defaultModel: '', notYetImplemented: false },
   { id: 'ollama', name: 'Ollama (local)', defaultModel: 'llama3.2', notYetImplemented: false },
   { id: 'openai-local', name: 'OpenAI-Compatible (local)', defaultModel: '', notYetImplemented: false },
 ]
