@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.1] - 2026-04-26
+
+### Changed
+
+- Renamed "Personas" to "Agents" throughout the application (tabs, labels, file paths, and demo profile)
+- Renamed Google "Vertex AI" provider to "Enterprise Agent Platform" in the UI
+- Changed example HTTPS MCP service in the demo profile to the Microsoft Learn MCP endpoint
+
+### Added
+
+- "Improve" action in the Agents, Commands, and Skills tab editors, allowing AI-assisted refinement of content
+- Built-in `task`, `web_fetch`, and `read` tools available to all AI providers (no MCP server required)
+
+### Fixed
+
+- Gemma 4 support as a local model via LM Studio: added parsing for Gemma 4's native `<tool_call>` tag format, deduplication of duplicate tool calls, and correct AbortError propagation so ESC interrupts tool-calling loops reliably
+- Updated available foundation models for Anthropic, Gemini, and Ollama providers
+
+---
+
 ## [1.0.0] - 2026-03-15
 
 Initial release, tested and available on macOS 26.3 (Apple Silicon).
